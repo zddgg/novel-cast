@@ -1,0 +1,168 @@
+package com.example.novelcastserver.config;
+
+import com.alibaba.fastjson2.JSON;
+import com.example.novelcastserver.bean.ChapterInfo;
+import com.example.novelcastserver.bean.ModelConfig;
+import com.example.novelcastserver.bean.ProjectConfig;
+import com.example.novelcastserver.bean.SpeechConfig;
+import io.micrometer.common.util.StringUtils;
+import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+@Data
+@Configuration
+@ConfigurationProperties(prefix = "novel-cast")
+public class PathConfig {
+
+    public static final String CONFIG = "配置";
+    public static final String PROJECT = "项目";
+    public static final String CHAPTER = "章节";
+    public static final String MODELS = "模型";
+    public static final String SPEECH = "语音";
+
+    public static final String file_projectConfig = "projectConfig.json";
+
+    public static final String file_chapterInfo = "chapterInfo.json";
+    public static final String file_aiResult = "aiResult.json";
+    public static final String file_lines = "lines.json";
+    public static final String file_roles = "roles.json";
+    public static final String file_linesMappings = "linesMappings.json";
+    public static final String file_modelConfig = "modelConfig.json";
+    public static final String file_speechConfigs = "speechConfigs.json";
+    public static final String file_processFlag = "processFlag.signal";
+    public static final String dir_audio = "audio";
+    public static final String file_output = "output.wav";
+
+    public static final String file_speechMarked = "speechMarked.json";
+
+    private String fileSystemPath;
+    private String fileSystemUrl;
+    private String gptSoVitsUrl;
+    private String remoteSpeechPath;
+
+    public String getProjectPath() {
+        return STR."\{this.fileSystemPath}\{PROJECT}\{File.separator}";
+    }
+
+    public String getProjectPath(String project) {
+        return STR."\{this.fileSystemPath}\{PROJECT}\{File.separator}\{project}\{File.separator}";
+    }
+
+    public String getProjectConfigPath(String project) {
+        return STR."\{getProjectPath(project)}\{CONFIG}\{File.separator}";
+    }
+
+    public String getChapterPath(String project) {
+        return STR."\{getProjectPath(project)}\{CHAPTER}\{File.separator}";
+    }
+
+    public String getChapterPath(String project, String chapterName) {
+        return getChapterPath(project) + chapterName + File.separator;
+    }
+
+    public String getOriginTextPath(String project, String chapterName) {
+        return STR."\{getChapterPath(project, chapterName)}原文.txt";
+    }
+
+    public String getAiResultFilePath(String project, String chapterName) {
+        return getChapterPath(project, chapterName) + file_aiResult;
+    }
+
+    public String getLinesFilePath(String project, String chapterName) {
+        return getChapterPath(project, chapterName) + file_lines;
+    }
+
+    public String getRolesFilePath(String project, String chapterName) {
+        return getChapterPath(project, chapterName) + file_roles;
+    }
+
+    public String getLinesMappingsFilePath(String project, String chapterName) {
+        return getChapterPath(project, chapterName) + file_linesMappings;
+    }
+
+    public String getModelConfigFilePath(String project, String chapterName) {
+        return getChapterPath(project, chapterName) + file_modelConfig;
+    }
+
+    public Path getLinesAudioDirPath(String project, String chapter) {
+        return Path.of(getChapterPath(project, chapter) + dir_audio);
+    }
+
+    public String getOutAudioPath(String project, String chapter) {
+        return getChapterPath(project, chapter) + file_output;
+    }
+
+    public String getModelPath() {
+        return STR."\{this.fileSystemPath}\{MODELS}\{File.separator}";
+    }
+
+    public String getRemoteSpeechPath() {
+        if (StringUtils.isEmpty(remoteSpeechPath)) {
+            return getModelSpeechPath();
+        }
+        return this.remoteSpeechPath;
+    }
+
+    public String getModelSpeechPath() {
+        return STR."\{this.fileSystemPath}\{MODELS}\{File.separator}\{SPEECH}\{File.separator}";
+    }
+
+    public String getModelMarkedJsonPath() {
+        return STR."\{getModelPath()}\{CONFIG}\{File.separator}\{file_speechMarked}";
+    }
+
+    public String getModelSpeechUrlBase() {
+        return this.fileSystemUrl + MODELS + "/" + SPEECH + "/";
+    }
+
+    public String getLinesAudioUrl(String project, String chapterName, String fileName) {
+        return this.fileSystemUrl + PROJECT + "/" + project + "/" + CHAPTER + "/" + chapterName + "/audio/" + fileName;
+    }
+
+    public String getOutAudioUrl(String project, String chapterName) {
+        return this.fileSystemUrl + PROJECT + "/" + project + "/" + CHAPTER + "/" + chapterName + "/" + file_output;
+    }
+
+    public ChapterInfo getChapterInfo(String project, String chapter) throws IOException {
+        Path path = Path.of(getChapterPath(project, chapter) + file_chapterInfo);
+        return JSON.parseObject(Optional.ofNullable(Files.readString(path)).orElse("{}"), ChapterInfo.class);
+    }
+
+    public ModelConfig getModelConfig(String project, String chapter) throws IOException {
+        Path path = Path.of(getChapterPath(project, chapter) + file_modelConfig);
+        return JSON.parseObject(Optional.ofNullable(Files.readString(path)).orElse("{}"), ModelConfig.class);
+    }
+
+    public List<SpeechConfig> getSpeechConfigs(String project, String chapter) throws IOException {
+        Path path = Path.of(getChapterPath(project, chapter) + file_speechConfigs);
+        if (Files.notExists(path)) {
+            return new ArrayList<>();
+        }
+        return JSON.parseArray(Optional.ofNullable(Files.readString(path)).orElse("[]"), SpeechConfig.class);
+    }
+
+    public void writeSpeechConfigs(String project, String chapter, List<SpeechConfig> speechConfigs) throws IOException {
+        Path path = Path.of(getChapterPath(project, chapter) + file_speechConfigs);
+        Files.write(path, JSON.toJSONBytes(speechConfigs));
+    }
+
+    public ProjectConfig getProjectConfig(String project) throws IOException {
+        Path path = Path.of(getProjectConfigPath(project) + file_projectConfig);
+        return JSON.parseObject(Optional.ofNullable(Files.readString(path)).orElse("{}"), ProjectConfig.class);
+    }
+
+    public Path getProcessFlagPath(String project, String chapter) {
+        return Path.of(getChapterPath(project, chapter) + file_processFlag);
+    }
+}

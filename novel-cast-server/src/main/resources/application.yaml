@@ -1,0 +1,44 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  application:
+    name: novel-cast-server
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 101MB
+  mvc:
+    async:
+      request-timeout: 600000
+  ai:
+    retry:
+      max-attempts: 1
+    openai:
+      # kimi 配置
+      base-url: https://api.moonshot.cn
+      api-key: xxx
+      chat:
+        options:
+          model: moonshot-v1-32k
+          temperature: 0.3
+          max-tokens: 4096
+
+      # ollama 配置
+#      base-url: http://localhost:11434
+#      api-key: ollama
+#      chat:
+#        options:
+#          model: qwen:7b
+
+
+novel-cast:
+  file-system-path: 'D:/novelCast/'
+  file-system-url: 'http://127.0.0.1/novelCast/'
+  gpt-so-vits-url: 'http://127.0.0.1:9880/'
+  remote-speech-path: 'D:/novelCast/模型/语音/'
