@@ -5,7 +5,7 @@ import lombok.Getter;
 @Getter
 public enum ResultEnum {
 
-    SUCCESS("0000", "Good Job~"),
+    SUCCESS("0000", "搞定~"),
     FAILURE("9999", "我也不知道哪里出了问题~"),
     PARAMETER_ERROR("0001", "总感觉哪里怪怪的，好像少了点什么~"),
     DATA_NOT_EXISTS("0002", " 我找了八百遍都没找到~"),
