@@ -6,6 +6,7 @@
           <a-card
             style="height: 100%; width: 100%"
             :body-style="{
+              minHeight: '160px',
               height: '100%',
               display: 'flex',
               justifyContent: 'center',
@@ -35,9 +36,9 @@
                 <a-descriptions-item label="章节数">{{
                   item.chapterNum
                 }}</a-descriptions-item>
-<!--                <a-descriptions-item label="状态">-->
-<!--                  <a-tag color="#00b42a">{{ item.status }}</a-tag>-->
-<!--                </a-descriptions-item>-->
+                <!--                <a-descriptions-item label="状态">-->
+                <!--                  <a-tag color="#00b42a">{{ item.status }}</a-tag>-->
+                <!--                </a-descriptions-item>-->
               </a-descriptions>
               <div style="margin-top: 20px; text-align: right">
                 <a-space size="large">

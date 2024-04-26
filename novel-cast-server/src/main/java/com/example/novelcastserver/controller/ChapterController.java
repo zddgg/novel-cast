@@ -536,7 +536,7 @@ public class ChapterController {
         } else {
             Files.list(Path.of(pathConfig.getModelSpeechPath() + defaultMoodPath)).forEach(path -> {
                 if (path.getFileName().toString().endsWith(".wav")) {
-                    speechConfig.setPromptAudioPath(pathConfig.getModelSpeechPath() + defaultMoodPath + "/" + path.getFileName().toString());
+                    speechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + defaultMoodPath + "/" + path.getFileName().toString());
                     speechConfig.setPromptText(path.getFileName().toString().replace(".wav", ""));
                 }
             });
