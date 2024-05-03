@@ -598,16 +598,6 @@
 </script>
 
 <style scoped>
-  .theme-dark {
-    --highlighted--text-bg-color: #b2d6f3;
-    --highlighted--text-color: #000;
-  }
-
-  .theme-light {
-    --highlighted--text-bg-color: #ffff00;
-    --highlighted--text-color: #000;
-  }
-
   .container {
     padding: 20px;
   }
@@ -624,7 +614,7 @@
   }
 
   .highlightedText {
-    background-color: var(--highlighted--text-bg-color);
-    color: var(--highlighted--text-color);
+    background-color: yellow;
+    color: #000000;
   }
 </style>
