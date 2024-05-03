@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container" :class="appStore.theme === 'dark' ? 'theme-dark' : 'theme-light'">
     <a-card class="general-card" :body-style="{ padding: '0' }">
       <a-layout>
         <a-layout-sider
@@ -32,7 +32,7 @@
                         style="width: 100%; display: flex; align-items: center"
                       >
                         <div style="width: 60%">
-                          <span style="font-size: 1.8rem; color: black">
+                          <span style="font-size: 1.8rem">
                             {{
                               item.chapterName
                                 ? item.chapterName.substring(
@@ -295,11 +295,14 @@
   import { useRoute } from 'vue-router';
   import AiInference from '@/views/chapter/components/RoleLinesView.vue';
   import RoleSpeechView from '@/views/chapter/components/SpeechConfigView.vue';
+  import { useAppStore } from '@/store';
   import LinesView from './components/LinesView.vue';
   import LinesMappingView from './components/ModelSelectedView.vue';
 
   const route = useRoute();
   const { setLoading } = useLoading(true);
+  const appStore = useAppStore();
+
   const chapters = ref<Chapter[]>([]);
   const chapterInfo = ref<ChapterInfo>({} as ChapterInfo);
   const highlightedSpanIds = ref<string[]>([]);
@@ -335,11 +338,11 @@
     params: ChapterParams = {
       current: 1,
       pageSize: 100,
-      project: route.query.project,
     } as ChapterParams
   ) => {
     setLoading(true);
     try {
+      params.project = route.query.project as string;
       const { data } = await queryChapterPageList(params);
       chapters.value = data.records;
       pagination.current = params.current;
@@ -595,6 +598,16 @@
 </script>
 
 <style scoped>
+  .theme-dark {
+    --highlighted--text-bg-color: #b2d6f3;
+    --highlighted--text-color: #000;
+  }
+
+  .theme-light {
+    --highlighted--text-bg-color: #ffff00;
+    --highlighted--text-color: #000;
+  }
+
   .container {
     padding: 20px;
   }
@@ -611,6 +624,7 @@
   }
 
   .highlightedText {
-    background-color: yellow;
+    background-color: var(--highlighted--text-bg-color);
+    color: var(--highlighted--text-color);
   }
 </style>
