@@ -1,5 +1,5 @@
 <template>
-  <div class="container" :class="appStore.theme === 'dark' ? 'theme-dark' : 'theme-light'">
+  <div class="container">
     <a-card class="general-card" :body-style="{ padding: '0' }">
       <a-layout>
         <a-layout-sider
@@ -32,7 +32,7 @@
                         style="width: 100%; display: flex; align-items: center"
                       >
                         <div style="width: 60%">
-                          <span style="font-size: 1.8rem">
+                          <a-typography-text style="font-size: 1.8rem">
                             {{
                               item.chapterName
                                 ? item.chapterName.substring(
@@ -40,7 +40,7 @@
                                   )
                                 : ''
                             }}
-                          </span>
+                          </a-typography-text>
                         </div>
                         <div style="margin-left: 1rem">
                           <a-space>
@@ -295,13 +295,11 @@
   import { useRoute } from 'vue-router';
   import AiInference from '@/views/chapter/components/RoleLinesView.vue';
   import RoleSpeechView from '@/views/chapter/components/SpeechConfigView.vue';
-  import { useAppStore } from '@/store';
   import LinesView from './components/LinesView.vue';
   import LinesMappingView from './components/ModelSelectedView.vue';
 
   const route = useRoute();
   const { setLoading } = useLoading(true);
-  const appStore = useAppStore();
 
   const chapters = ref<Chapter[]>([]);
   const chapterInfo = ref<ChapterInfo>({} as ChapterInfo);
