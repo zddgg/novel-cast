@@ -327,6 +327,15 @@
     Message.success(msg);
   };
 
+  const getAiResultData = async () => {
+    const { data } = await queryAiResult({
+      project: route.query.project as string,
+      chapterName: props.chapterName as string,
+    });
+    roles.value = data?.roles;
+    linesMappings.value = data?.linesMappings;
+  };
+
   // 定义回调函数
   const handleMessage = (data: string[], index: number) => {
     aiResultText.value += data.join('');
@@ -336,12 +345,9 @@
 
   const handleDone = () => {
     setLoading(false);
-    const text = aiResultText.value.replace(/^```json|```$/g, '');
-    const json = JSON.parse(text);
-    roles.value = json.roles;
-    linesMappings.value = json.linesMappings;
-    // 请求完成的处理逻辑
-    console.log('Request completed');
+    setTimeout(() => {
+      getAiResultData();
+    }, 500);
   };
 
   const handleError = (response: Response) => {
@@ -384,15 +390,6 @@
       setLoading(false);
       Message.error('请求失败');
     }
-  };
-
-  const getAiResultData = async () => {
-    const { data } = await queryAiResult({
-      project: route.query.project as string,
-      chapterName: props.chapterName as string,
-    });
-    roles.value = data?.roles;
-    linesMappings.value = data?.linesMappings;
   };
 
   const handleIgnoreAiResult = async () => {
