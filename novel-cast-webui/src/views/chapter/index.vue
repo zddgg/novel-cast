@@ -368,11 +368,15 @@
         list.forEach((item1) => {
           const linesDuration: LinesDuration = {
             start: startTime,
-            end: startTime + item1.duration,
+            end:
+              startTime +
+              item1.duration +
+              (item.audioConfig?.audioMergeInterval || 0),
             index: item1.linesIndex,
           };
           linesDurations.push(linesDuration);
-          startTime += item1.duration;
+          startTime +=
+            item1.duration + (item.audioConfig?.audioMergeInterval || 0);
         });
         resultMap.set(item.chapterName, linesDurations);
       });

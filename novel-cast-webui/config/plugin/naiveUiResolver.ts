@@ -7,7 +7,7 @@
  * 虽然Pro项目中是全量引入组件，但此插件会默认使用。
  */
 import Components from 'unplugin-vue-components/vite';
-import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
+import { NaiveUiResolver } from 'unplugin-vue-components/resolvers';
 
 export default function configNaiveUiResolverPlugin() {
   return Components({

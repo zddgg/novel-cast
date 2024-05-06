@@ -14,4 +14,5 @@ public class Chapter {
     private Integer step;
     private String outAudioUrl;
     private List<SpeechConfig> speechConfigs;
+    private AudioConfig audioConfig;
 }

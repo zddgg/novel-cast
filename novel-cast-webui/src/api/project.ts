@@ -48,10 +48,15 @@ export interface ProjectGlobalConfig {
   viewersModel: ProjectModelsConfig;
 }
 
+export interface ProjectAudioConfig {
+  audioMergeInterval: number;
+}
+
 export interface ProjectConfig {
   project: string;
   globalConfig: ProjectGlobalConfig;
   roleConfigs: ProjectRoleConfig[];
+  audioConfig: ProjectAudioConfig;
 }
 
 export function createProjectConfig(params: ProjectConfig) {

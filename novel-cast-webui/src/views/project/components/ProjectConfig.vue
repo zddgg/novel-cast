@@ -180,6 +180,38 @@
           </a-row>
         </a-form>
       </a-card>
+      <a-card
+        v-if="false"
+        class="general-card"
+        :body-style="{ padding: '20px' }"
+        title="音频配置"
+      >
+        <a-form :model="audioConfig" size="large">
+          <a-row :gutter="24">
+            <a-col :span="12">
+              <a-form-item
+                label="音频合并间隔"
+                :help="'多条音频合并时中间加入间隔，增加间隔会导致首页播放合并音频时，文本高亮会有一点偏差， 其他无影响'"
+              >
+                <a-input-number
+                  v-model="audioConfig.audioMergeInterval"
+                  :default-value="0"
+                  :step="100"
+                  mode="button"
+                  class="input-demo"
+                  @blur="
+                    () => {
+                      audioConfig.audioMergeInterval =
+                        Math.floor(audioConfig.audioMergeInterval / 100) * 100;
+                    }
+                  "
+                />
+                <span style="margin-left: 20px">毫秒</span>
+              </a-form-item>
+            </a-col>
+          </a-row>
+        </a-form>
+      </a-card>
       <a-card class="general-card" :body-style="{ padding: '20px' }">
         <template #actions>
           <a-space size="large">
@@ -203,6 +235,7 @@
   import { CascaderOption, FormInstance, Message } from '@arco-design/web-vue';
   import {
     createProjectConfig,
+    ProjectAudioConfig,
     ProjectGlobalConfig,
     ProjectRoleConfig,
     queryProjectConfig,
@@ -237,6 +270,8 @@
   });
 
   const roleConfigs = ref<ProjectRoleConfig[]>([]);
+
+  const audioConfig = ref<ProjectAudioConfig>({} as ProjectAudioConfig);
 
   const handleAddRole = () => {
     roleConfigs.value.push({} as ProjectRoleConfig);
@@ -275,6 +310,7 @@
       project: route.query.project as string,
       globalConfig: globalConfig.value,
       roleConfigs: roleConfigs.value,
+      audioConfig: audioConfig.value,
     };
     try {
       setLoading(true);
@@ -317,6 +353,12 @@
           }),
         };
       });
+    }
+    audioConfig.value = data.audioConfig;
+    if (data.audioConfig) {
+      audioConfig.value = data.audioConfig;
+    } else {
+      audioConfig.value = { audioMergeInterval: 0 };
     }
   };
 

@@ -181,9 +181,20 @@ public class ChapterService {
         List<SpeechConfig> speechConfigs = pathConfig.getSpeechConfigs(project, chapter);
         Map<String, SpeechConfig> speechConfigMap = speechConfigs.stream().collect(Collectors.toMap(SpeechConfig::getLinesIndex, Function.identity()));
 
-//        String oneSecond = Path.of("tmp/oneSecondSilence.wav").toAbsolutePath().toString();
-//        Files.createDirectories(Path.of(oneSecond).toAbsolutePath().getParent());
-//        AudioUtils.makeSilenceWav(oneSecond, 2000L);
+//        ProjectConfig projectConfig = pathConfig.getProjectConfig(project);
+//        AudioConfig audioConfig = projectConfig.getAudioConfig();
+
+//        Integer audioMergeInterval = 0;
+//        if (Objects.nonNull(audioConfig) && Objects.nonNull(audioConfig.getAudioMergeInterval())) {
+//            audioMergeInterval = audioConfig.getAudioMergeInterval() / 100 * 100;
+//        }
+//
+//        String tmpAudio = "";
+//        if (audioMergeInterval > 0) {
+//            tmpAudio = Path.of("tmp/tmpAudio.wav").toAbsolutePath().toString();
+//            Files.createDirectories(Path.of(tmpAudio).toAbsolutePath().getParent());
+//            AudioUtils.makeSilenceWav(tmpAudio, Long.valueOf(audioMergeInterval));
+//        }
 
         Path audioDirPath = pathConfig.getLinesAudioDirPath(project, chapter);
         if (Files.exists(audioDirPath)) {
@@ -218,8 +229,10 @@ public class ChapterService {
             List<String> mewList = new ArrayList<>();
             for (int i = 0; i < filePaths.size(); i++) {
                 mewList.add(pathConfig.getChapterPath(project, chapter) + PathConfig.dir_audio + File.separator + filePaths.get(i));
-//                if (i < filePaths.size() - 1) {
-//                    mewList.add(oneSecond);
+//                if (audioMergeInterval > 0) {
+//                    if (i < filePaths.size() - 1) {
+//                        mewList.add(tmpAudio);
+//                    }
 //                }
             }
 

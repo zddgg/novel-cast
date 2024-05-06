@@ -10,6 +10,7 @@ public class ProjectConfig {
     private String project;
     private ProjectGlobalConfig globalConfig;
     private List<ProjectRoleConfig> roleConfigs;
+    private AudioConfig audioConfig;
 
     @Data
     public static class ProjectRoleConfig {
@@ -37,6 +38,4 @@ public class ProjectConfig {
         private ProjectModelsConfig asideModel;
         private ProjectModelsConfig viewersModel;
     }
-
-
 }

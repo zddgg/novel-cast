@@ -51,6 +51,10 @@ export interface SpeechConfig {
   model: string[];
   duration: number;
 }
+export interface AudioConfig {
+  audioMergeInterval: number;
+}
+
 
 export interface Chapter {
   chapterName: string;
@@ -62,6 +66,7 @@ export interface Chapter {
   step: number;
   outAudioUrl: string;
   speechConfigs: SpeechConfig[];
+  audioConfig: AudioConfig;
 }
 
 export interface ChapterParams extends Chapter, Pagination {

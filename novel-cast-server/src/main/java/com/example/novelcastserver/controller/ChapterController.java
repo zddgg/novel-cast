@@ -79,6 +79,8 @@ public class ChapterController {
             throw new BizException("项目不存在~");
         }
 
+//        ProjectConfig projectConfig = pathConfig.getProjectConfig(vo.getProject());
+
         List<Chapter> list = Files.list(projectPath).map(path -> {
                     Chapter chapter = new Chapter();
                     String chapterName = path.getFileName().toString();
@@ -122,6 +124,9 @@ public class ChapterController {
 
                     try {
                         chapter.setSpeechConfigs(pathConfig.getSpeechConfigs(project, chapterName));
+//                        if (Objects.nonNull(projectConfig)) {
+//                            chapter.setAudioConfig(projectConfig.getAudioConfig());
+//                        }
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
