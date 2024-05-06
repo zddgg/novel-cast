@@ -11,21 +11,15 @@
 ## 运行程序
 ### 编译后的程序运行
 1. 下载压缩包 [度盘](https://pan.baidu.com/s/156fl5D0l7Z5Utq0f9YfDvg )  `wenl` 。
-2. 打开压缩包至D盘根路径，其他盘符修改yaml和nginx的nginx.conf
+2. 打开压缩包，修改 `application.yaml` 文件中的 `kimi api key` 和 `GPT-SoVITS api`
 3. 运行 `启动.bat`
 4. 浏览器打开 `127.0.0.1:8080`
 
 
 ### 源码运行
 1. 技术栈 
-jdk21, springboot3, vue3, nginx。
-2. 需要nginx配置参考：
-```
-location /novelCast {
-			alias D:/novelCast;
-			}
-```
-3. 项目结构
+jdk21, springboot3, vue3
+2. 项目结构
 ```
 D:
 └─novelCast
@@ -38,6 +32,3 @@ D:
     └─项目
 
 ```
-
-
-### 关闭项目时先关闭命令行窗口，再点击 `停止后再执行关闭-nginx.bat`
