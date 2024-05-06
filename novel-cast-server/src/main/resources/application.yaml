@@ -33,7 +33,6 @@ spring:
 
 
 novel-cast:
-  file-system-path: 'D:/novelCast/'
-  file-system-url: 'http://127.0.0.1/novelCast/'
+  file-system-path:
   gpt-so-vits-url: 'http://127.0.0.1:9880/'
-  remote-speech-path: 'D:/novelCast/模型/语音/'
+  remote-speech-path:

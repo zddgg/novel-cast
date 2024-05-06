@@ -6,10 +6,13 @@ import com.example.novelcastserver.bean.ModelConfig;
 import com.example.novelcastserver.bean.ProjectConfig;
 import com.example.novelcastserver.bean.SpeechConfig;
 import io.micrometer.common.util.StringUtils;
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,13 +20,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "novel-cast")
 public class PathConfig {
+
+    @Value("${user.dir}")
+    private String userDir;
+
+    @Autowired
+    private Environment env;
 
     public static final String CONFIG = "配置";
     public static final String PROJECT = "项目";
@@ -50,6 +58,18 @@ public class PathConfig {
     private String fileSystemUrl;
     private String gptSoVitsUrl;
     private String remoteSpeechPath;
+
+    @PostConstruct
+    public void init() {
+        String absPath = new File(userDir).getAbsolutePath();
+        if (StringUtils.isBlank(fileSystemPath)) {
+            fileSystemPath = absPath + File.separator + "novelCast" + File.separator;
+        }
+        fileSystemUrl = "http://localhost:" + env.getProperty("server.port") + "/files/";
+        if (StringUtils.isBlank(remoteSpeechPath)) {
+            remoteSpeechPath = getModelSpeechPath();
+        }
+    }
 
     public String getProjectPath() {
         return STR."\{this.fileSystemPath}\{PROJECT}\{File.separator}";
