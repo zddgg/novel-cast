@@ -405,7 +405,9 @@
   };
 
   const saveAndNext = () => {
-    closeAndNext();
+    handleUpdateRoles().then(() => {
+      closeAndNext();
+    });
   };
 
   const next = () => {
