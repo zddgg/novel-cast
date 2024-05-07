@@ -1,6 +1,5 @@
 package com.example.novelcastserver.controller;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.ListUtil;
 import com.alibaba.fastjson2.JSON;
 import com.example.novelcastserver.bean.*;
@@ -14,7 +13,6 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
-import org.springframework.context.annotation.Bean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -161,6 +159,7 @@ public class ChapterController {
                     Files.writeString(aiResultJsonPath, text);
                 }
                 aiResult = JSON.parseObject(text, AiResult.class);
+                aiResult = genRoleAndMapping(vo, aiResult);
             }
         } else {
             aiResult.setRoles(JSON.parseArray(Files.readString(rolesJsonPath), Role.class));
@@ -223,6 +222,11 @@ public class ChapterController {
             text = text.replace("```json", "").replace("```", "");
         }
         AiResult aiResult = JSON.parseObject(text, AiResult.class);
+        genRoleAndMapping(vo, aiResult);
+        return Result.success();
+    }
+
+    private AiResult genRoleAndMapping(ChapterVO vo, AiResult aiResult) throws IOException {
 
         ChapterInfo chapterInfo = pathConfig.getChapterInfo(vo.getProject(), vo.getChapterName());
 
@@ -256,7 +260,10 @@ public class ChapterController {
         Path linesMappingsJsonPath = Path.of(pathConfig.getLinesMappingsFilePath(vo.getProject(), vo.getChapterName()));
         Files.write(linesMappingsJsonPath, JSON.toJSONString(linesMappings).getBytes());
 
-        return Result.success();
+        AiResult result = new AiResult();
+        result.setLinesMappings(linesMappings);
+        result.setRoles(combineRoles);
+        return result;
     }
 
     @PostMapping("ignoreAiResult")
