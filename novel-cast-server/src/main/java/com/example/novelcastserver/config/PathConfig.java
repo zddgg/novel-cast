@@ -43,7 +43,7 @@ public class PathConfig {
 
     public static final String file_chapterInfo = "chapterInfo.json";
     public static final String file_aiResult = "aiResult.json";
-    public static final String file_lines = "lines.json";
+    public static final String file_aiIgnore = "aiIgnore.signal";
     public static final String file_roles = "roles.json";
     public static final String file_linesMappings = "linesMappings.json";
     public static final String file_modelConfig = "modelConfig.json";
@@ -99,8 +99,8 @@ public class PathConfig {
         return getChapterPath(project, chapterName) + file_aiResult;
     }
 
-    public String getLinesFilePath(String project, String chapterName) {
-        return getChapterPath(project, chapterName) + file_lines;
+    public String getAiIgnoreFilePath(String project, String chapterName) {
+        return getChapterPath(project, chapterName) + file_aiIgnore;
     }
 
     public String getRolesFilePath(String project, String chapterName) {

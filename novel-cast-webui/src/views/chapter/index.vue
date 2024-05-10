@@ -82,22 +82,12 @@
                             </a-button>
                           </a-step>
                           <a-step>
-                            角色台词分析
-                            <a-button
-                              size="mini"
-                              type="outline"
-                              :disabled="item.step + 1 < 2"
-                              @click="handleRoleLinesView(item.chapterName)"
-                              >查看
-                            </a-button>
-                          </a-step>
-                          <a-step>
                             模型选择
                             <a-button
                               size="mini"
                               type="outline"
-                              :disabled="item.step + 1 < 3"
-                              @click="handleModelSelectedView(item.chapterName)"
+                              :disabled="item.step + 1 < 2"
+                              @click="handleModelView(item.chapterName)"
                               >查看
                             </a-button>
                           </a-step>
@@ -106,7 +96,7 @@
                             <a-button
                               size="mini"
                               type="outline"
-                              :disabled="item.step + 1 < 4"
+                              :disabled="item.step + 1 < 3"
                               @click="handleRoleSpeechView(item.chapterName)"
                               >查看
                             </a-button>
@@ -201,7 +191,7 @@
         <div style="padding-top: 20px">
           <LinesView
             v-model:lines-view-visible="linesViewVisible"
-            v-model:role-lines-view-visible="roleLinesViewVisible"
+            v-model:model-view-visible="modelViewVisible"
             v-model:chapter-name="getChapterName"
             @lines-pointer="linesPointer"
             @close-drawer-fetch-data="closeDrawerFetchData"
@@ -211,32 +201,8 @@
     </div>
     <div>
       <a-drawer
-        v-if="roleLinesViewVisible"
-        v-model:visible="roleLinesViewVisible"
-        height="100%"
-        popup-container="#chapterConfigArea"
-        :mask-closable="false"
-        :placement="'top'"
-        title="角色台词分析"
-        :footer="false"
-        @cancel="handleDrawerClose"
-      >
-        <div style="padding-top: 20px">
-          <AiInference
-            v-model:role-lines-view-visible="roleLinesViewVisible"
-            v-model:model-selected-view-visible="modelSelectedViewVisible"
-            v-model:chapter-name="getChapterName"
-            @lines-pointer="linesPointer"
-            @lines-pointer-for-role="linesPointerForRole"
-            @close-drawer-fetch-data="closeDrawerFetchData"
-          />
-        </div>
-      </a-drawer>
-    </div>
-    <div>
-      <a-drawer
-        v-if="modelSelectedViewVisible"
-        v-model:visible="modelSelectedViewVisible"
+        v-if="modelViewVisible"
+        v-model:visible="modelViewVisible"
         height="100%"
         popup-container="#chapterConfigArea"
         :mask-closable="false"
@@ -246,11 +212,12 @@
         @cancel="handleDrawerClose"
       >
         <div style="padding-top: 20px">
-          <LinesMappingView
-            v-model:model-selected-view-visible="modelSelectedViewVisible"
+          <ModelView
+            v-model:model-view-visible="modelViewVisible"
             v-model:speech-config-view-visible="speechConfigViewVisible"
             v-model:chapter-name="getChapterName"
             @lines-pointer="linesPointer"
+            @lines-pointer-for-role="linesPointerForRole"
             @close-drawer-fetch-data="closeDrawerFetchData"
           />
         </div>
@@ -293,10 +260,9 @@
     queryDetail,
   } from '@/api/chapter';
   import { useRoute } from 'vue-router';
-  import AiInference from '@/views/chapter/components/RoleLinesView.vue';
   import RoleSpeechView from '@/views/chapter/components/SpeechConfigView.vue';
   import LinesView from './components/LinesView.vue';
-  import LinesMappingView from './components/ModelSelectedView.vue';
+  import ModelView from './components/ModelView.vue';
 
   const route = useRoute();
   const { setLoading } = useLoading(true);
@@ -484,6 +450,7 @@
   const roleLinesViewVisible = ref(false);
   const modelSelectedViewVisible = ref(false);
   const speechConfigViewVisible = ref(false);
+  const modelViewVisible = ref(false);
 
   const reloadAudio = (index: number) => {
     audioRefs.value.forEach((audio, i) => {
@@ -504,6 +471,7 @@
     roleLinesViewVisible.value = false;
     modelSelectedViewVisible.value = false;
     speechConfigViewVisible.value = false;
+    modelViewVisible.value = false;
     fetchData();
     setTimeout(() => {
       if (chapterInfo.value.index) {
@@ -531,6 +499,11 @@
     showChapterText(chapterName);
     closeDrawerFetchData();
     speechConfigViewVisible.value = true;
+  };
+  const handleModelView = (chapterName: string) => {
+    showChapterText(chapterName);
+    closeDrawerFetchData();
+    modelViewVisible.value = true;
   };
   const handleDrawerClose = () => {
     highlightedSpanIds.value = [];

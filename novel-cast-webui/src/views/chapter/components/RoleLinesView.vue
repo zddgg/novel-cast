@@ -8,7 +8,7 @@
             type="primary"
             size="large"
             :loading="loading"
-            :disabled="loading"
+            :disabled="loading && aiResultError"
             @click="handleAiInference"
             >点击生成</a-button
           >
@@ -22,12 +22,12 @@
           </a-button>
         </a-space>
       </div>
-      <div v-if="loading">
+      <div v-if="loading || aiResultError">
         <span style="font-size: 16px">{{ aiResultText }}</span>
       </div>
     </div>
     <a-space
-      v-if="(roles || linesMappings) && !loading"
+      v-if="(roles || linesMappings) && !aiResultError"
       direction="vertical"
       style="width: 100%"
       size="large"
@@ -193,6 +193,8 @@
 
   const { loading, setLoading } = useLoading();
 
+  const aiResultError = ref(false);
+
   const roles = ref<Role[]>([]);
 
   const linesMappings = ref<LinesMapping[]>([]);
@@ -344,10 +346,14 @@
   };
 
   const handleDone = () => {
+    if (aiResultText.value.endsWith('error')) {
+      aiResultError.value = true;
+    } else {
+      setTimeout(() => {
+        getAiResultData();
+      }, 500);
+    }
     setLoading(false);
-    setTimeout(() => {
-      getAiResultData();
-    }, 500);
   };
 
   const handleError = (response: Response) => {
@@ -365,6 +371,7 @@
   const handleAiInference = async () => {
     try {
       setLoading(true);
+      aiResultText.value = '';
       // 创建 FetchStream 实例并发送请求
       const fetchOptions: IFetchStreamOptions = {
         url: '/api/chapter/aiInference',

@@ -7,8 +7,10 @@ import java.util.List;
 @Data
 public class ModelConfig {
 
+    private List<RoleModelConfig> commonRoleConfigs;
     private List<RoleModelConfig> roleConfigs;
     private List<LinesConfig> linesConfigs;
+    private Boolean aiIgnore;
 
     @Data
     public static class RoleModelConfig {

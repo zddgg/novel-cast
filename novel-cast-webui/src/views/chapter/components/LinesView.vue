@@ -57,22 +57,13 @@
           v-if="hasLines"
           :loading="loading"
           type="primary"
-          status="danger"
-          size="large"
-          @click="saveAndNext"
-          >保存并生成角色台词关系
-        </a-button>
-        <a-button
-          v-if="hasLines"
-          :loading="loading"
-          type="primary"
-          status="warning"
+          status="success"
           size="large"
           @click="handleLinesUpdate"
-          >保存</a-button
-        >
-        <a-button size="large" type="primary" @click="next"
-          >生成角色台词关系</a-button
+          >保存
+        </a-button>
+        <a-button type="primary" size="large" @click="closeAndNext"
+          >下一步</a-button
         >
         <a-button size="large" @click="close">关闭</a-button>
       </a-space>
@@ -99,7 +90,7 @@
       type: Boolean,
       default: false,
     },
-    roleLinesViewVisible: {
+    modelViewVisible: {
       type: Boolean,
       default: false,
     },
@@ -111,7 +102,7 @@
   const route = useRoute();
   const emits = defineEmits([
     'update:linesViewVisible',
-    'update:roleLinesViewVisible',
+    'update:modelViewVisible',
     'closeDrawerFetchData',
     'linesPointer',
   ]);
@@ -196,16 +187,7 @@
 
   const closeAndNext = () => {
     emits('update:linesViewVisible', false);
-    emits('update:roleLinesViewVisible', true);
-  };
-
-  const saveAndNext = () => {
-    handleLinesUpdate();
-    closeAndNext();
-  };
-
-  const next = () => {
-    closeAndNext();
+    emits('update:modelViewVisible', true);
   };
 
   watch(

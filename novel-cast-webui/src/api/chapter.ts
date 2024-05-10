@@ -55,7 +55,6 @@ export interface AudioConfig {
   audioMergeInterval: number;
 }
 
-
 export interface Chapter {
   chapterName: string;
   content: string;
@@ -110,6 +109,24 @@ export interface ModelItem {
   name: string;
 }
 
+export interface RoleModelConfig1 {
+  role: Role;
+  models: ModelItem[];
+  strategyType: string;
+  moods: string[];
+  tmpModels: string[][];
+}
+
+export interface DataModel {
+  model: string;
+}
+
+export interface SpeechModel {
+  group: string;
+  model: string;
+  mood: string;
+}
+
 export interface RoleModelConfig {
   role: Role;
   models: ModelItem[];
@@ -123,13 +140,16 @@ export interface LinesConfig {
   model: ModelItem;
   mood: string;
   tmpModel: string[];
+  backup: string;
 }
 
 export interface ModelConfig {
   project: string;
   chapterName: string;
+  commonRoleConfigs: RoleModelConfig[];
   roleConfigs: RoleModelConfig[];
   linesConfigs: LinesConfig[];
+  aiIgnore: boolean;
 }
 
 export interface ModelConfigParams {

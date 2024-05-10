@@ -21,7 +21,8 @@ public class ChapterInfo {
     public static class SentenceInfo {
         private Integer index;
         private String content;
-        private Boolean lines;
+        private Boolean linesFlag;
+        private Boolean linesDelFlag;
 
         public SentenceInfo() {
         }
@@ -31,10 +32,10 @@ public class ChapterInfo {
             this.content = content;
         }
 
-        public SentenceInfo(Integer index, String content, Boolean lines) {
+        public SentenceInfo(Integer index, String content, Boolean linesFlag) {
             this.index = index;
             this.content = content;
-            this.lines = lines;
+            this.linesFlag = linesFlag;
         }
     }
 }

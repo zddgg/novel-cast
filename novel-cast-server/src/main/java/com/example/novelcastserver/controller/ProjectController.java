@@ -85,6 +85,9 @@ public class ProjectController {
             Path chapterInfoPath = Path.of(pathConfig.getChapterPath(project, chapterName) + "chapterInfo.json");
             Files.writeString(chapterInfoPath, JSON.toJSONString(chapterInfo));
 
+            Path chapterInfoBkPath = Path.of(pathConfig.getChapterPath(project, chapterName) + "chapterInfo.json.bk");
+            Files.writeString(chapterInfoBkPath, JSON.toJSONString(chapterInfo));
+
         }
         return Result.success();
     }

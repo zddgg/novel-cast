@@ -30,7 +30,7 @@ public class AiInferenceService {
         List<Lines> linesList = new ArrayList<>();
         chapterInfo.getLineInfos().forEach(lineInfo -> {
             lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
-                if (Optional.ofNullable(sentenceInfo.getLines()).orElse(false)) {
+                if (Optional.ofNullable(sentenceInfo.getLinesFlag()).orElse(false)) {
                     Lines lines = new Lines();
                     lines.setIndex(lineInfo.getIndex() + "-" + sentenceInfo.getIndex());
                     lines.setLines(sentenceInfo.getContent());

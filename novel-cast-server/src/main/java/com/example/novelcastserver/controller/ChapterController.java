@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -61,7 +62,6 @@ public class ChapterController {
     /**
      * step0: chapterInfo.json
      * step1: aiResult.json
-     * step2: lines.json || roles.json || linesMappings.json
      * step3: modelConfig.json
      * step4: audio/**
      *
@@ -90,29 +90,26 @@ public class ChapterController {
                                 try {
                                     ChapterInfo chapterInfo = JSON.parseObject(Files.readString(path1), ChapterInfo.class);
                                     if (Objects.nonNull(chapterInfo) && Objects.nonNull(chapterInfo.getPrologue()) && chapterInfo.getPrologue()) {
-                                        i.set(Math.max(i.get(), 3));
+                                        i.set(Math.max(i.get(), 1));
                                     }
                                 } catch (IOException e) {
                                     throw new RuntimeException(e);
                                 }
                             }
-                            if ("aiResult.json".equals(path1.getFileName().toString())) {
-                                i.set(Math.max(i.get(), 2));
-                            }
                             if ("modelConfig.json".equals(path1.getFileName().toString())) {
-                                i.set(Math.max(i.get(), 3));
+                                i.set(Math.max(i.get(), 2));
                             }
                             if ("audio".equals(path1.getFileName().toString())) {
                                 try {
                                     if (Files.list(path1).findAny().isPresent()) {
-                                        i.set(Math.max(i.get(), 4));
+                                        i.set(Math.max(i.get(), 3));
                                     }
                                 } catch (IOException e) {
                                     throw new BizException(e.getMessage());
                                 }
                             }
                             if ("output.wav".equals(path1.getFileName().toString())) {
-                                i.set(Math.max(i.get(), 5));
+                                i.set(Math.max(i.get(), 4));
                                 chapter.setOutAudioUrl(pathConfig.getOutAudioUrl(project, chapterName));
                             }
                         });
@@ -163,7 +160,23 @@ public class ChapterController {
             }
         } else {
             aiResult.setRoles(JSON.parseArray(Files.readString(rolesJsonPath), Role.class));
-            aiResult.setLinesMappings(JSON.parseArray(Files.readString(linesMappingsJsonPath), LinesMapping.class));
+
+            List<LinesMapping> linesMappings = JSON.parseArray(Files.readString(linesMappingsJsonPath), LinesMapping.class);
+            ChapterInfo chapterInfo = pathConfig.getChapterInfo(vo.getProject(), vo.getChapterName());
+
+            Map<String, String> contentMap = new HashMap<>();
+            chapterInfo.getLineInfos().forEach(lineInfo -> {
+                lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
+                    contentMap.put(lineInfo.getIndex() + "-" + sentenceInfo.getIndex(), sentenceInfo.getContent());
+                });
+            });
+
+            for (LinesMapping linesMapping : linesMappings) {
+                if (contentMap.containsKey(linesMapping.getLinesIndex())) {
+                    linesMapping.setLines(contentMap.get(linesMapping.getLinesIndex()));
+                }
+            }
+            aiResult.setLinesMappings(linesMappings);
         }
 
         return Result.success(aiResult);
@@ -186,8 +199,11 @@ public class ChapterController {
         Path chapterInfoPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + "chapterInfo.json");
         ChapterInfo chapterInfo = JSON.parseObject(Files.readAllBytes(chapterInfoPath), ChapterInfo.class);
 
-        String aiResultJsonPathStr = pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName());
-        Path aiResultJsonPath = Path.of(aiResultJsonPathStr);
+        Path aiIgnoreJsonPath = Path.of(pathConfig.getAiIgnoreFilePath(vo.getProject(), vo.getChapterName()));
+        Files.deleteIfExists(aiIgnoreJsonPath);
+
+
+        Path aiResultJsonPath = Path.of(pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName()));
         if (Files.exists(aiResultJsonPath)) {
             Files.write(aiResultJsonPath, new byte[0], StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
         }
@@ -202,7 +218,13 @@ public class ChapterController {
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                }).doOnComplete(() -> {
+                }).onErrorResume(e -> {
+                    if (e instanceof WebClientResponseException.Unauthorized) {
+                        return Flux.just("ai api 接口认证异常，请检查api key, " + e.getMessage() + " error");
+                    }
+                    return Flux.just(e.getMessage() + " error");
+                })
+                .doOnComplete(() -> {
                     try {
                         parseAiInference(vo);
                     } catch (IOException e) {
@@ -217,12 +239,14 @@ public class ChapterController {
         String aiResultJsonPathStr = pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName());
         Path aiResultJsonPath = Path.of(aiResultJsonPathStr);
 
-        String text = Files.readString(aiResultJsonPath);
-        if (text.startsWith("```json") || text.endsWith("```")) {
-            text = text.replace("```json", "").replace("```", "");
+        if (Files.exists(aiResultJsonPath)) {
+            String text = Files.readString(aiResultJsonPath);
+            if (text.startsWith("```json") || text.endsWith("```")) {
+                text = text.replace("```json", "").replace("```", "");
+            }
+            AiResult aiResult = JSON.parseObject(text, AiResult.class);
+            genRoleAndMapping(vo, aiResult);
         }
-        AiResult aiResult = JSON.parseObject(text, AiResult.class);
-        genRoleAndMapping(vo, aiResult);
         return Result.success();
     }
 
@@ -243,15 +267,6 @@ public class ChapterController {
             linesMapping.setLines(sentenceInfoMap.get(linesMapping.getLinesIndex()).getContent());
         }
 
-        List<Lines> linesList = linesMappings.stream().map(linesMapping -> {
-            Lines lines = new Lines();
-            lines.setIndex(linesMapping.getLinesIndex());
-            lines.setLines(sentenceInfoMap.get(linesMapping.getLinesIndex()).getContent());
-            return lines;
-        }).toList();
-        Path linesJsonPath = Path.of(pathConfig.getLinesFilePath(vo.getProject(), vo.getChapterName()));
-        Files.write(linesJsonPath, JSON.toJSONString(linesList).getBytes());
-
         // 大模型总结的角色列表有时候会多也会少
         Path rolesJsonPath = Path.of(pathConfig.getRolesFilePath(vo.getProject(), vo.getChapterName()));
         List<Role> combineRoles = combineRoles(roles, linesMappings);
@@ -268,7 +283,7 @@ public class ChapterController {
 
     @PostMapping("ignoreAiResult")
     public Result<Object> ignoreAiResult(@RequestBody ChapterVO vo) throws IOException {
-        Files.write(Path.of(pathConfig.getLinesFilePath(vo.getProject(), vo.getChapterName())), "[]".getBytes());
+        Files.write(Path.of(pathConfig.getAiIgnoreFilePath(vo.getProject(), vo.getChapterName())), "".getBytes());
         Files.write(Path.of(pathConfig.getRolesFilePath(vo.getProject(), vo.getChapterName())), "[]".getBytes());
         Files.write(Path.of(pathConfig.getLinesMappingsFilePath(vo.getProject(), vo.getChapterName())), "[]".getBytes());
         Files.write(Path.of(pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName())), "{}".getBytes());
@@ -302,10 +317,11 @@ public class ChapterController {
         List<Lines> linesList = new ArrayList<>();
         chapterInfo.getLineInfos().forEach(lineInfo -> {
             lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
-                if (Optional.ofNullable(sentenceInfo.getLines()).orElse(false)) {
+                if (Optional.ofNullable(sentenceInfo.getLinesFlag()).orElse(false)) {
                     Lines lines = new Lines();
                     lines.setIndex(lineInfo.getIndex() + "-" + sentenceInfo.getIndex());
                     lines.setLines(sentenceInfo.getContent());
+                    lines.setDelFlag(sentenceInfo.getLinesDelFlag());
                     linesList.add(lines);
                 }
             });
@@ -346,12 +362,12 @@ public class ChapterController {
         }
 
         Path chapterInfoPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + "chapterInfo.json");
-        ChapterInfo chapterInfo = JSON.parseObject(Files.readAllBytes(chapterInfoPath), ChapterInfo.class);
+        ChapterInfo chapterInfo = pathConfig.getChapterInfo(vo.getProject(), vo.getChapterName());
 
         List<Lines> linesList = vo.getLinesList();
         if (!CollectionUtils.isEmpty(linesList)) {
             Map<String, Lines> linesMap = linesList.stream()
-                    .collect(Collectors.toMap(Lines::getLines, Function.identity()));
+                    .collect(Collectors.toMap(Lines::getIndex, Function.identity()));
 
             for (ChapterInfo.LineInfo lineInfo : chapterInfo.getLineInfos()) {
                 for (ChapterInfo.SentenceInfo sentenceInfo : lineInfo.getSentenceInfos()) {
@@ -361,7 +377,7 @@ public class ChapterController {
                             sentenceInfo.setContent(lines.getLines());
                         }
                         if (Objects.equals(lines.getDelFlag(), Boolean.TRUE)) {
-                            lines.setDelFlag(Boolean.FALSE);
+                            sentenceInfo.setLinesDelFlag(Boolean.TRUE);
                         }
                     }
                 }
@@ -416,8 +432,8 @@ public class ChapterController {
     @PostMapping("queryModelConfig")
     public Result<ModelConfig> queryModelConfig(@RequestBody ChapterVO vo) throws IOException {
         ModelConfig modelConfig = new ModelConfig();
-        Path speechConfigPath = Path.of(pathConfig.getModelConfigFilePath(vo.getProject(), vo.getChapterName()));
-        if (Files.notExists(speechConfigPath) || StringUtils.isBlank(Files.readString(speechConfigPath))) {
+        Path modelConfigPath = Path.of(pathConfig.getModelConfigFilePath(vo.getProject(), vo.getChapterName()));
+        if (Files.notExists(modelConfigPath) || StringUtils.isBlank(Files.readString(modelConfigPath))) {
 
             Path rolesJsonPath = Path.of(pathConfig.getRolesFilePath(vo.getProject(), vo.getChapterName()));
             List<Role> roles = new ArrayList<>();
@@ -444,25 +460,68 @@ public class ChapterController {
                 return linesConfig;
             }).toList();
 
+
+            ModelConfig.RoleModelConfig titleRoleConfig = new ModelConfig.RoleModelConfig();
+            titleRoleConfig.setRole(new Role("标题", "未知", "未知"));
+
             ModelConfig.RoleModelConfig asideRoleConfig = new ModelConfig.RoleModelConfig();
             asideRoleConfig.setRole(new Role("旁白", "未知", "未知"));
 
-            List<ModelConfig.RoleModelConfig> newRoleConfigs = new ArrayList<>(List.of(asideRoleConfig));
-            newRoleConfigs.addAll(roleConfigs);
+            List<ModelConfig.RoleModelConfig> commonRoleConfigs = new ArrayList<>(List.of(titleRoleConfig, asideRoleConfig));
 
-            modelConfig.setRoleConfigs(newRoleConfigs);
+            modelConfig.setCommonRoleConfigs(commonRoleConfigs);
+            modelConfig.setRoleConfigs(roleConfigs);
             modelConfig.setLinesConfigs(linesConfigs);
         } else {
-            modelConfig = JSON.parseObject(Files.readString(speechConfigPath), ModelConfig.class);
+            modelConfig = JSON.parseObject(Files.readString(modelConfigPath), ModelConfig.class);
         }
+
+        Path aiIgnorePath = Path.of(pathConfig.getAiIgnoreFilePath(vo.getProject(), vo.getChapterName()));
+        modelConfig.setAiIgnore(Files.exists(aiIgnorePath));
 
         return Result.success(modelConfig);
     }
 
     @PostMapping("updateModelConfig")
     public Result<Object> updateModelConfig(@RequestBody ModelConfigVO vo) throws IOException {
+        // 保存modelConfig
         Path modelConfigPath = Path.of(pathConfig.getModelConfigFilePath(vo.getProject(), vo.getChapterName()));
         Files.write(modelConfigPath, JSON.toJSONBytes(vo.getModelConfig()));
+
+
+        // 角色合并到旁白以及台词内容的修改写回chapterInfo文件
+        ChapterInfo chapterInfo = pathConfig.getChapterInfo(vo.getProject(), vo.getChapterName());
+
+        List<ModelConfig.LinesConfig> linesConfigs = vo.getModelConfig().getLinesConfigs();
+        if (!CollectionUtils.isEmpty(linesConfigs)) {
+
+            Map<String, LinesMapping> linesMappingMap = new HashMap<>();
+            for (ModelConfig.LinesConfig linesConfig : linesConfigs) {
+                linesMappingMap.put(linesConfig.getLinesMapping().getLinesIndex(), linesConfig.getLinesMapping());
+            }
+
+            for (ChapterInfo.LineInfo lineInfo : chapterInfo.getLineInfos()) {
+                for (ChapterInfo.SentenceInfo sentenceInfo : lineInfo.getSentenceInfos()) {
+                    String index = lineInfo.getIndex() + "-" + sentenceInfo.getIndex();
+                    if (linesMappingMap.containsKey(index)) {
+                        LinesMapping linesMapping = linesMappingMap.get(index);
+                        sentenceInfo.setContent(linesMapping.getLines());
+                        if (StringUtils.equals("旁白", linesMapping.getRole())) {
+                            sentenceInfo.setLinesFlag(false);
+                        }
+                    }
+                }
+            }
+
+            Path chapterInfoPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + "chapterInfo.json");
+            Files.write(chapterInfoPath, JSON.toJSONBytes(chapterInfo));
+
+        }
+
+        // 生成语音配置
+        List<SpeechConfig> speechConfigs = chapterService.createRoleSpeechesConfig(vo.getProject(), vo.getChapterName());
+        pathConfig.writeSpeechConfigs(vo.getProject(), vo.getChapterName(), speechConfigs);
+
         return Result.success();
     }
 
@@ -612,12 +671,6 @@ public class ChapterController {
         return speechConfig;
     }
 
-    @PostMapping("createSpeechesConfig")
-    public Result<Object> createSpeechesConfig(@RequestBody ChapterVO vo) throws IOException {
-        List<SpeechConfig> speechConfigs = chapterService.createRoleSpeechesConfig(vo.getProject(), vo.getChapterName());
-        pathConfig.writeSpeechConfigs(vo.getProject(), vo.getChapterName(), speechConfigs);
-        return Result.success();
-    }
 
     @PostMapping("querySpeechConfigs")
     public Result<RoleSpeechVO> querySpeechConfigs(@RequestBody ChapterVO vo) throws IOException {
