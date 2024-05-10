@@ -31,215 +31,203 @@
         :label-col-props="{ span: 8 }"
         :wrapper-col-props="{ span: 16 }"
       >
-        <a-card title="公共角色配置" :body-style="{ padding: '0' }">
-          <a-card
-            v-for="(item, index) in commonRoleConfigs"
-            :key="index"
-            @click="showLightTextList(item.role.role)"
-          >
-            <a-row>
-              <a-col :span="8">
-                <a-form-item label="角色">
-                  <a-input v-model="item.role.role" />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="语音模型">
-                  <a-cascader
-                    v-model="item.tmpModels"
-                    multiple
-                    path-mode
-                    :options="speechModelData"
-                    @change="(value) => {
-                        item.models = (value as []).map((item1) => {
-                          return {group: item1[0], name: item1[1]}
-                        })
-                      }"
-                  />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="模型策略">
-                  <a-select v-model="item.strategyType">
-                    <a-option>固定</a-option>
-                    <a-option>顺序</a-option>
-                    <a-option>随机</a-option>
-                  </a-select>
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="语音情感">
-                  <a-select v-model="item.moods" multiple> </a-select>
-                </a-form-item>
-              </a-col>
-            </a-row>
-          </a-card>
-        </a-card>
-      </a-form>
-      <a-form
-        size="large"
-        :model="{}"
-        :label-col-props="{ span: 8 }"
-        :wrapper-col-props="{ span: 16 }"
-      >
-        <a-card title="角色配置" :body-style="{ padding: '0' }">
-          <a-card
-            v-for="(item, index) in roleConfigs"
-            :key="index"
-            @click="showLightTextList(item.role.role)"
-          >
-            <a-row>
-              <a-col :span="8">
-                <a-form-item label="角色">
-                  <a-input v-model="item.role.role" />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="性别">
-                  <a-input v-model="item.role.gender" />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="年龄段">
-                  <a-input v-model="item.role.ageGroup" />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="语音模型">
-                  <a-cascader
-                    v-model="item.tmpModels"
-                    multiple
-                    path-mode
-                    :options="speechModelData"
-                    @change="(value) => {
-                        item.models = (value as []).map((item1) => {
-                          return {group: item1[0], name: item1[1]}
-                        })
-                      }"
-                  />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="模型策略">
-                  <a-select v-model="item.strategyType">
-                    <a-option>固定</a-option>
-                    <a-option>顺序</a-option>
-                    <a-option>随机</a-option>
-                  </a-select>
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="语音情感">
-                  <a-select v-model="item.moods" multiple> </a-select>
-                </a-form-item>
-              </a-col>
-            </a-row>
-            <a-row
-              v-if="!['标题', '旁白'].includes(item.role.role)"
-              style="display: flex; justify-content: right"
+        <a-space size="large" direction="vertical" style="width: 100%">
+          <a-card title="公共角色配置" :body-style="{ padding: '0' }">
+            <a-card
+              v-for="(item, index) in commonRoleConfigs"
+              :key="index"
+              @click="showLightTextList(item.role.role)"
             >
-              <a-space size="large">
-                <a-popconfirm
-                  v-if="!item.role.backup"
-                  content="这个角色的台词怎么处理?"
-                  type="error"
-                  ok-text="合并到其他角色"
-                  cancel-text="当旁白处理"
-                  @ok="handleConfirmOk(item.role)"
-                >
-                  <a-button
-                    type="primary"
-                    status="danger"
-                    :disabled="
-                      !!item.role.backup &&
-                      roleConfigs
-                        .map((item1) => item1.role.backup)
-                        .includes(item.role.backup)
-                    "
-                  >
-                    删除角色
-                  </a-button>
-                </a-popconfirm>
-                <a-button
-                  v-else
-                  type="primary"
-                  status="warning"
-                  @click="() => (item.role.backup = '')"
-                >
-                  撤销删除
-                </a-button>
-              </a-space>
-            </a-row>
+              <a-row>
+                <a-col :span="8">
+                  <a-form-item label="角色">
+                    <a-input v-model="item.role.role" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="语音模型">
+                    <a-cascader
+                      v-model="item.tmpModels"
+                      multiple
+                      path-mode
+                      :options="speechModelData"
+                      @change="(value) => {
+                        item.models = (value as []).map((item1) => {
+                          return {group: item1[0], name: item1[1]}
+                        })
+                      }"
+                    />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="模型策略">
+                    <a-select v-model="item.strategyType">
+                      <a-option>固定</a-option>
+                      <a-option>顺序</a-option>
+                      <a-option>随机</a-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="语音情感">
+                    <a-select v-model="item.moods" multiple> </a-select>
+                  </a-form-item>
+                </a-col>
+              </a-row>
+            </a-card>
           </a-card>
-        </a-card>
-      </a-form>
-      <a-form
-        size="large"
-        :model="{}"
-        :label-col-props="{ span: 8 }"
-        :wrapper-col-props="{ span: 16 }"
-      >
-        <a-card title="台词配置" :body-style="{ padding: 0 }">
-          <a-card
-            v-for="(item, index) in linesConfigs"
-            :key="index"
-            @click="showLightText(item.linesMapping.linesIndex)"
-          >
-            <a-row>
-              <a-col :span="12">
-                <a-row>
-                  <a-col :span="12">
-                    <a-form-item label="角色">
-                      <a-input v-model="item.linesMapping.role" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="12">
-                    <a-form-item label="情感">
-                      <a-input v-model="item.linesMapping.mood" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="12">
-                    <a-form-item label="语音模型">
-                      <a-cascader
-                        v-model="item.tmpModel"
-                        :options="speechModelData"
-                        path-mode
-                        @change="(value) => {
+          <a-card title="角色配置" :body-style="{ padding: '0' }">
+            <a-card
+              v-for="(item, index) in roleConfigs"
+              :key="index"
+              @click="showLightTextList(item.role.role)"
+            >
+              <a-row>
+                <a-col :span="8">
+                  <a-form-item label="角色">
+                    <a-input v-model="item.role.role" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="性别">
+                    <a-input v-model="item.role.gender" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="年龄段">
+                    <a-input v-model="item.role.ageGroup" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="语音模型">
+                    <a-cascader
+                      v-model="item.tmpModels"
+                      multiple
+                      path-mode
+                      :options="speechModelData"
+                      @change="(value) => {
+                        item.models = (value as []).map((item1) => {
+                          return {group: item1[0], name: item1[1]}
+                        })
+                      }"
+                    />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="模型策略">
+                    <a-select v-model="item.strategyType">
+                      <a-option>固定</a-option>
+                      <a-option>顺序</a-option>
+                      <a-option>随机</a-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :span="8">
+                  <a-form-item label="语音情感">
+                    <a-select v-model="item.moods" multiple> </a-select>
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <a-row
+                v-if="!['标题', '旁白'].includes(item.role.role)"
+                style="display: flex; justify-content: right"
+              >
+                <a-space size="large">
+                  <a-popconfirm
+                    v-if="!item.role.backup"
+                    content="这个角色的台词怎么处理?"
+                    type="error"
+                    ok-text="合并到其他角色"
+                    cancel-text="当旁白处理"
+                    @ok="handleConfirmOk(item.role)"
+                  >
+                    <a-button
+                      type="primary"
+                      status="danger"
+                      :disabled="
+                        !!item.role.backup &&
+                        roleConfigs
+                          .map((item1) => item1.role.backup)
+                          .includes(item.role.backup)
+                      "
+                    >
+                      删除角色
+                    </a-button>
+                  </a-popconfirm>
+                  <a-button
+                    v-else
+                    type="primary"
+                    status="warning"
+                    @click="() => (item.role.backup = '')"
+                  >
+                    撤销删除
+                  </a-button>
+                </a-space>
+              </a-row>
+            </a-card>
+          </a-card>
+          <a-card title="台词配置" :body-style="{ padding: 0 }">
+            <a-card
+              v-for="(item, index) in linesConfigs"
+              :key="index"
+              @click="showLightText(item.linesMapping.linesIndex)"
+            >
+              <a-row>
+                <a-col :span="12">
+                  <a-row>
+                    <a-col :span="12">
+                      <a-form-item label="角色">
+                        <a-input v-model="item.linesMapping.role" />
+                      </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                      <a-form-item label="情感">
+                        <a-input v-model="item.linesMapping.mood" />
+                      </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                      <a-form-item label="语音模型">
+                        <a-cascader
+                          v-model="item.tmpModel"
+                          :options="speechModelData"
+                          path-mode
+                          @change="(value) => {
                             item.model = {
                               group: (value as string[])[0],
                               name: (value as string[])[1],
                             }
                           }"
-                      />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="12">
-                    <a-form-item label="语音情感">
-                      <a-select
-                        v-model="item.mood"
-                        :options="computedMoods(item.model) as string[]"
-                      ></a-select>
-                    </a-form-item>
-                  </a-col>
-                </a-row>
-              </a-col>
-              <a-col :span="12">
-                <a-form-item
-                  label="台词"
-                  :label-col-props="{ span: 4 }"
-                  :wrapper-col-props="{ span: 20 }"
-                >
-                  <a-textarea
-                    v-model="item.linesMapping.lines"
-                    :auto-size="{
-                      minRows: 1,
-                    }"
-                  />
-                </a-form-item>
-              </a-col>
-            </a-row>
+                        />
+                      </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                      <a-form-item label="语音情感">
+                        <a-select
+                          v-model="item.mood"
+                          :options="computedMoods(item.model) as string[]"
+                        ></a-select>
+                      </a-form-item>
+                    </a-col>
+                  </a-row>
+                </a-col>
+                <a-col :span="12">
+                  <a-form-item
+                    label="台词"
+                    :label-col-props="{ span: 4 }"
+                    :wrapper-col-props="{ span: 20 }"
+                  >
+                    <a-textarea
+                      v-model="item.linesMapping.lines"
+                      :auto-size="{
+                        minRows: 1,
+                      }"
+                    />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+            </a-card>
           </a-card>
-        </a-card>
+        </a-space>
       </a-form>
       <div style="margin-bottom: 60px">
         <a-space style="margin-top: 20px; float: right" size="large">
