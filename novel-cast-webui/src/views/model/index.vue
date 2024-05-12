@@ -66,8 +66,8 @@
                           </a-space>
                         </div>
                         <div style="margin-top: 20px">
-                          <a-grid :col-gap="24" :row-gap="24" :cols="5">
-                            <a-grid-item
+                          <a-space wrap>
+                            <div
                               v-for="(item2, index2) in item1.moods"
                               :key="index2"
                             >
@@ -100,8 +100,8 @@
                                 </template>
                                 {{ item2.name }}
                               </a-button>
-                            </a-grid-item>
-                          </a-grid>
+                            </div>
+                          </a-space>
                         </div>
                         <div style="margin-top: 20px">
                           <a-typography-text

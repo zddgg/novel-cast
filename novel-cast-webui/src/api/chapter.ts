@@ -51,6 +51,7 @@ export interface RoleSpeechConfig {
   model: string[];
   duration: number;
   speedControl: number;
+  textLanguage: number;
   combineIgnore: boolean;
 }
 

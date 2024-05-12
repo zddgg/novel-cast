@@ -71,15 +71,23 @@
           ></a-select>
         </template>
         <template #speedControl="{ record }">
-          <a-select
-            v-model="record.speedControl"
-            default-value="1"
-            popup-container="#speechConfigTable"
-            :options="speedControlOptions"
-          />
+          <a-space direction="vertical">
+            <a-select
+              v-model="record.speedControl"
+              default-value="1"
+              popup-container="#speechConfigTable"
+              :options="speedControlOptions"
+            />
+            <a-select
+              v-model="record.textLanguage"
+              default-value="zh"
+              popup-container="#speechConfigTable"
+              :options="textLanguageOptions"
+            />
+          </a-space>
         </template>
         <template #lines="{ record }">
-          <a-textarea v-model="record.lines"></a-textarea>
+          <a-textarea v-model="record.lines" auto-size></a-textarea>
         </template>
         <template #operations="{ rowIndex, record }">
           <a-space direction="vertical" size="medium">
@@ -252,6 +260,16 @@
     },
   ]);
 
+  const textLanguageOptions = [
+    {
+      label: 'zh',
+      value: 'zh',
+    },
+    {
+      label: 'en',
+      value: 'en',
+    },
+  ];
   const speedControlOptions = [
     {
       label: '0.25',

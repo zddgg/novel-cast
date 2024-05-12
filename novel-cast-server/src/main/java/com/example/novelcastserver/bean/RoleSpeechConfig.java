@@ -15,5 +15,6 @@ public class RoleSpeechConfig {
     private String audioUrl;
     private Long duration;
     private Float speedControl;
+    private String textLanguage;
     private Boolean combineIgnore;
 }

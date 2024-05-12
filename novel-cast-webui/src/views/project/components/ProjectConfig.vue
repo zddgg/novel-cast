@@ -270,11 +270,9 @@
                     <a-col :span="12">
                       <a-form-item label="选择章节名正则">
                         <a-select
+                          v-model="textConfig.chapterTitlePattern"
                           :default-value="chapterTitlePatterns[0].value"
                           :options="chapterTitlePatterns"
-                          @change="
-                            (value) => (textConfig.chapterTitlePattern = value as string)
-                          "
                         />
                       </a-form-item>
                     </a-col>
@@ -339,58 +337,18 @@
                     <a-col :span="12">
                       <a-form-item
                         label="角色台词修饰符"
-                        help="右边选不到可以手动填，紧密相连的一组符号，可配置多种，多层次只匹配最外层"
+                        help="右边选不到可以在下拉框中手动填，紧密相连的一组符号，可配置多种，多层次只匹配最外层"
                       >
-                        <a-space wrap>
-                          <a-tag
-                            v-for="(tag, index) of textConfig.linesModifiers"
-                            :key="index"
-                            :closable="true"
-                            :size="'large'"
-                            @close="handleRemove(index)"
-                          >
-                            {{ tag }}
-                          </a-tag>
-
-                          <a-input
-                            v-if="showInput"
-                            ref="inputRef"
-                            v-model.trim="inputVal"
-                            :style="{ width: '90px' }"
-                            size="mini"
-                            @keyup.enter="handleAdd"
-                            @blur="handleAdd"
-                          />
-                          <a-tag
-                            v-else
-                            :style="{
-                              width: '90px',
-                              backgroundColor: 'var(--color-fill-2)',
-                              border: '1px dashed var(--color-fill-3)',
-                              cursor: 'pointer',
-                            }"
-                            @click="handleEdit"
-                          >
-                            <template #icon>
-                              <icon-plus />
-                            </template>
-                            Add Tag
-                          </a-tag>
-                        </a-space>
+                        <a-input v-model="computedLinesModifiers" readonly />
                       </a-form-item>
                     </a-col>
                     <a-col :span="12">
                       <a-form-item label="选择修饰符">
                         <a-select
+                          v-model="textConfig.linesModifiers"
+                          multiple
+                          allow-create
                           :options="modifiersList"
-                          :default-value="modifiersList[0].value"
-                          @change="
-                            (value) => {
-                              if (!textConfig.linesModifiers.includes(value as string)) {
-                                textConfig.linesModifiers.push(value as string);
-                              }
-                            }
-                          "
                         />
                       </a-form-item>
                     </a-col>
@@ -439,6 +397,17 @@
                       </a-form-item>
                     </a-col>
                   </a-row>
+                  <a-row>
+                    <a-col :span="12">
+                      <a-form-item label="文本语言">
+                        <a-select
+                          v-model="textConfig.textLanguage"
+                          :default-value="textLanguageOptions[0].value"
+                          :options="textLanguageOptions"
+                        />
+                      </a-form-item>
+                    </a-col>
+                  </a-row>
                 </a-form>
               </a-card>
               <a-card class="general-card" :body-style="{ padding: '20px' }">
@@ -479,7 +448,7 @@
 </template>
 
 <script setup lang="ts">
-  import { nextTick, onMounted, ref } from 'vue';
+  import { computed, onMounted, ref } from 'vue';
   import { querySpeechModels } from '@/api/model';
   import {
     CascaderOption,
@@ -554,6 +523,10 @@
       label: '第*[章节卷集部篇回]*',
       value: '^\\s*第.{1,9}[章节卷集部篇回].*',
     },
+    {
+      label: '占一行的纯数字章节名',
+      value: '^\\d+$',
+    },
   ];
 
   const modifiersList = [
@@ -603,38 +576,26 @@
     },
   ];
 
+  const textLanguageOptions = [
+    {
+      label: 'zh',
+      value: 'zh',
+    },
+    {
+      label: 'en',
+      value: 'en',
+    },
+  ];
+
   const textConfig = ref<ProjectTextConfig>({
     linesModifiers: [modifiersList[0].value],
     chapterTitlePattern: chapterTitlePatterns[0].value,
+    textLanguage: textLanguageOptions[0].value,
   });
 
-  const inputRef = ref<HTMLInputElement | null>(null);
-  const showInput = ref(false);
-  const inputVal = ref('');
-
-  const handleEdit = () => {
-    showInput.value = true;
-
-    nextTick(() => {
-      if (inputRef.value) {
-        inputRef.value.focus();
-      }
-    });
-  };
-
-  const handleAdd = () => {
-    if (inputVal.value) {
-      textConfig.value.linesModifiers.push(inputVal.value);
-      inputVal.value = '';
-    }
-    showInput.value = false;
-  };
-
-  const handleRemove = (key) => {
-    textConfig.value.linesModifiers = textConfig.value.linesModifiers.filter(
-      (index) => key !== index
-    );
-  };
+  const computedLinesModifiers = computed(() => {
+    return textConfig.value.linesModifiers.join(',');
+  });
 
   const chapterTitlePatternTestText = ref('');
   const chapterTitlePatternTestResult = ref<
@@ -800,6 +761,7 @@
     } else {
       audioConfig.value = { audioMergeInterval: 0 };
     }
+    textConfig.value = data.textConfig;
   };
 
   onMounted(() => {

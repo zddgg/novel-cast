@@ -34,6 +34,8 @@ public class ChapterService {
 
         ProjectConfig.ProjectGlobalConfig projectGlobalConfig = projectConfig.getGlobalConfig();
         List<ProjectConfig.ProjectRoleConfig> projectRoleConfigs = projectConfig.getRoleConfigs();
+        ProjectConfig.ProjectTextConfig textConfig = projectConfig.getTextConfig();
+
         Map<String, ProjectConfig.ProjectRoleConfig> projectRoleConfigMap = projectRoleConfigs.stream()
                 .collect(Collectors.toMap(ProjectConfig.ProjectRoleConfig::getRole, Function.identity(), (v1, v2) -> v1));
 
@@ -59,6 +61,7 @@ public class ChapterService {
 
                 RoleSpeechConfig roleSpeechConfig = new RoleSpeechConfig();
                 roleSpeechConfig.setSpeedControl(1.0f);
+                roleSpeechConfig.setTextLanguage(textConfig.getTextLanguage());
 
                 Model selectModel = projectGlobalConfig.getDefaultModel().getModel();
 

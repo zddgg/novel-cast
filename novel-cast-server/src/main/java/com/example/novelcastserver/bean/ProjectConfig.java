@@ -45,5 +45,6 @@ public class ProjectConfig {
     public static class ProjectTextConfig {
         private List<String> linesModifiers;
         private String chapterTitlePattern;
+        private String textLanguage;
     }
 }

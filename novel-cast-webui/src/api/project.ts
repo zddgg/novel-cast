@@ -55,6 +55,7 @@ export interface ProjectAudioConfig {
 export interface ProjectTextConfig {
   chapterTitlePattern: string;
   linesModifiers: string[];
+  textLanguage: string;
 }
 
 export interface ProjectConfig {

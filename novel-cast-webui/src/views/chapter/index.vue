@@ -5,7 +5,7 @@
         <a-layout-sider
           id="chapterConfigArea"
           ref="chapterConfigArea"
-          style="width: 60%"
+          style="width: 70%"
         >
           <a-card :bordered="false" :body-style="{ padding: '0' }">
             <n-scrollbar style="height: calc(89vh - 2rem - 40px)">
