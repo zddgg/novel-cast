@@ -1,61 +1,66 @@
 <template>
   <div class="container">
     <a-space size="large" direction="vertical" style="width: 100%">
-      <div style="text-align: right">
-        <a-space size="large">
-          <span v-if="!aiProcess && !aiIgnore" style="font-size: 16px"
-            >还没有AI分析结果</span
-          >
-          <div v-if="aiProcess">
-            <a-space size="large">
-              <a-popconfirm type="warning" @ok="handleAiReInference">
-                <a-button
-                  type="primary"
-                  size="large"
-                  :loading="loading"
-                  :disabled="loading && aiResultError"
-                  >重新生成</a-button
+      <div>
+        <div style="text-align: right">
+          <a-space size="large">
+            <span v-if="!aiProcess && !aiIgnore" style="font-size: 16px"
+              >还没有AI分析结果</span
+            >
+            <div v-if="aiProcess">
+              <a-space size="large">
+                <a-popconfirm type="warning" @ok="handleAiReInference">
+                  <a-button
+                    type="primary"
+                    size="large"
+                    :loading="loading"
+                    :disabled="loading && aiResultError"
+                    >重新生成</a-button
+                  >
+                  <template #content>
+                    <span>重新生成不会删除现有数据<br /></span>
+                    <span>后面保存结果才会更新数据</span>
+                  </template>
+                </a-popconfirm>
+                <a-popconfirm
+                  type="warning"
+                  @ok="handleSaveAiReInferenceResult"
                 >
-                <template #content>
-                  <span>重新生成不会删除现有数据<br /></span>
-                  <span>后面保存结果才会更新数据</span>
-                </template>
-              </a-popconfirm>
-              <a-popconfirm type="warning" @ok="handleSaveAiReInferenceResult">
-                <a-button
-                  v-if="aiReInferenceFlag"
-                  type="primary"
-                  status="danger"
-                  size="large"
-                  :loading="loading"
-                  :disabled="loading && aiResultError"
-                  >保存此次生成结果</a-button
-                >
-                <template #content>
-                  <span>保存后会重置本页面的所有模型配置</span>
-                </template>
-              </a-popconfirm>
-            </a-space>
-          </div>
-          <a-button
-            v-else
-            type="primary"
-            size="large"
-            :loading="loading"
-            :disabled="loading && aiResultError"
-            @click="handleAiInference"
-            >点击生成</a-button
-          >
-          <a-button
-            v-if="!aiProcess && !aiIgnore"
-            size="large"
-            :loading="loading"
-            :disabled="loading"
-            @click="handleIgnoreAiResult"
-          >
-            跳过AI分析
-          </a-button>
-        </a-space>
+                  <a-button
+                    v-if="aiReInferenceFlag"
+                    type="primary"
+                    status="danger"
+                    size="large"
+                    :loading="loading"
+                    :disabled="loading && aiResultError"
+                    >保存此次生成结果</a-button
+                  >
+                  <template #content>
+                    <span>保存后会重置本页面的所有模型配置</span>
+                  </template>
+                </a-popconfirm>
+              </a-space>
+            </div>
+            <a-button
+              v-else
+              type="primary"
+              size="large"
+              :loading="loading"
+              :disabled="loading && aiResultError"
+              @click="handleAiInference"
+              >点击生成</a-button
+            >
+            <a-button
+              v-if="!aiProcess && !aiIgnore"
+              size="large"
+              :loading="loading"
+              :disabled="loading"
+              @click="handleIgnoreAiResult"
+            >
+              跳过AI分析
+            </a-button>
+          </a-space>
+        </div>
         <div v-if="loading || aiResultError">
           <span style="font-size: 16px">{{ aiResultText }}</span>
         </div>
