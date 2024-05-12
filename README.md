@@ -18,7 +18,7 @@
 
 ### 源码运行
 1. 技术栈 
-jdk21, springboot3, vue3
+jdk21, springboot3, vue3, ffmpeg
 2. 项目结构
 ```
 D:
