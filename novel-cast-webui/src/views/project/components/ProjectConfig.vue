@@ -594,7 +594,7 @@
   });
 
   const computedLinesModifiers = computed(() => {
-    return textConfig.value.linesModifiers.join(',');
+    return textConfig.value?.linesModifiers.join(',');
   });
 
   const chapterTitlePatternTestText = ref('');
@@ -762,6 +762,13 @@
       audioConfig.value = { audioMergeInterval: 0 };
     }
     textConfig.value = data.textConfig;
+    if (!textConfig.value) {
+      textConfig.value = {
+        chapterTitlePattern: '',
+        linesModifiers: [],
+        textLanguage: 'zh',
+      };
+    }
   };
 
   onMounted(() => {

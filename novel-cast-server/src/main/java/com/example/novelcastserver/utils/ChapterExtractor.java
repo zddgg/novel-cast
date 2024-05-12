@@ -76,8 +76,7 @@ public class ChapterExtractor {
 
         if (!preface.isEmpty()) {
             ChapterParse prefaceChapter = new ChapterParse();
-            String substring = preface.toString().split("\\n")[0].trim().substring(Math.min(50, preface.toString().split("\\n")[0].trim().length()));
-            prefaceChapter.setTitle(substring.replace(":", "")); // Setting the title from the first line
+            prefaceChapter.setTitle(preface.toString().split("\\n")[0].trim()); // Setting the title from the first line
             prefaceChapter.setContent(preface.toString());
             prefaceChapter.setPrologue(true);
             chapterPars.addFirst(prefaceChapter);
