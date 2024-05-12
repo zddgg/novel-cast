@@ -11,6 +11,8 @@ public class ProjectConfig {
     private ProjectGlobalConfig globalConfig;
     private List<ProjectRoleConfig> roleConfigs;
     private AudioConfig audioConfig;
+    private ProjectTextConfig textConfig;
+    private Integer chapterNum;
 
     @Data
     public static class ProjectRoleConfig {
@@ -37,5 +39,11 @@ public class ProjectConfig {
         private ProjectModelsConfig titleModel;
         private ProjectModelsConfig asideModel;
         private ProjectModelsConfig viewersModel;
+    }
+
+    @Data
+    public static class ProjectTextConfig {
+        private List<String> linesModifiers;
+        private String chapterTitlePattern;
     }
 }

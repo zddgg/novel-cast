@@ -1,8 +1,10 @@
 package com.example.novelcastserver.service;
 
+import com.alibaba.fastjson2.JSON;
 import com.example.novelcastserver.bean.*;
 import com.example.novelcastserver.config.PathConfig;
 import com.example.novelcastserver.utils.AudioUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -15,6 +17,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class ChapterService {
 
@@ -24,7 +27,7 @@ public class ChapterService {
         this.pathConfig = pathConfig;
     }
 
-    public ArrayList<SpeechConfig> createRoleSpeechesConfig(String project, String chapter) throws IOException {
+    public ArrayList<RoleSpeechConfig> createRoleSpeechesConfig(String project, String chapter) throws IOException {
         ChapterInfo chapterInfo = pathConfig.getChapterInfo(project, chapter);
         ModelConfig modelConfig = pathConfig.getModelConfig(project, chapter);
         ProjectConfig projectConfig = pathConfig.getProjectConfig(project);
@@ -33,6 +36,12 @@ public class ChapterService {
         List<ProjectConfig.ProjectRoleConfig> projectRoleConfigs = projectConfig.getRoleConfigs();
         Map<String, ProjectConfig.ProjectRoleConfig> projectRoleConfigMap = projectRoleConfigs.stream()
                 .collect(Collectors.toMap(ProjectConfig.ProjectRoleConfig::getRole, Function.identity(), (v1, v2) -> v1));
+
+        // 公共角色配置
+        Map<String, ModelConfig.RoleModelConfig> commonRoleConfigMap = modelConfig.getCommonRoleConfigs()
+                .stream()
+                .collect(Collectors.toMap(r -> r.getRole().getRole(), roleConfig -> roleConfig, (a, b) -> b, HashMap::new));
+
 
         // 角色配置
         Map<String, ModelConfig.RoleModelConfig> roleConfigMap = modelConfig.getRoleConfigs()
@@ -44,11 +53,12 @@ public class ChapterService {
                 .stream()
                 .collect(Collectors.toMap(r -> r.getLinesMapping().getLinesIndex(), linesConfig -> linesConfig, (a, b) -> b, HashMap::new));
 
-        ArrayList<SpeechConfig> speechConfigs = new ArrayList<>();
+        ArrayList<RoleSpeechConfig> roleSpeechConfigs = new ArrayList<>();
         chapterInfo.getLineInfos().forEach(lineInfo -> {
             lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
 
-                SpeechConfig speechConfig = new SpeechConfig();
+                RoleSpeechConfig roleSpeechConfig = new RoleSpeechConfig();
+                roleSpeechConfig.setSpeedControl(1.0f);
 
                 Model selectModel = projectGlobalConfig.getDefaultModel().getModel();
 
@@ -60,7 +70,7 @@ public class ChapterService {
                     Model linesConfigModel = linesConfig.getModel();
 
                     String role = linesMapping.getRole();
-                    speechConfig.setRole(role);
+                    roleSpeechConfig.setRole(role);
 
                     // 观众配置
                     if (StringUtils.equals("观众", role)) {
@@ -110,7 +120,7 @@ public class ChapterService {
                     }
                 } else if (linesIndex.startsWith("0-0")) {
 
-                    speechConfig.setRole("标题");
+                    roleSpeechConfig.setRole("标题");
 
                     // 项目配置
                     ProjectConfig.ProjectModelsConfig titleModel = projectGlobalConfig.getTitleModel();
@@ -119,8 +129,15 @@ public class ChapterService {
                         selectModel = models.get(new Random().nextInt(models.size()));
                     }
 
+                    // 模型选择页配置
+                    ModelConfig.RoleModelConfig asideConfig = commonRoleConfigMap.get("标题");
+                    if (Objects.nonNull(asideConfig) && !CollectionUtils.isEmpty(asideConfig.getModels())) {
+                        List<Model> models = asideConfig.getModels();
+                        selectModel = models.get(new Random().nextInt(models.size()));
+                    }
+
                 } else {
-                    speechConfig.setRole("旁白");
+                    roleSpeechConfig.setRole("旁白");
 
                     // 项目配置
                     ProjectConfig.ProjectModelsConfig asideModel = projectGlobalConfig.getAsideModel();
@@ -130,116 +147,252 @@ public class ChapterService {
                     }
 
                     // 模型选择页配置
-                    ModelConfig.RoleModelConfig asideConfig = roleConfigMap.get("旁白");
+                    ModelConfig.RoleModelConfig asideConfig = commonRoleConfigMap.get("旁白");
                     if (Objects.nonNull(asideConfig) && !CollectionUtils.isEmpty(asideConfig.getModels())) {
                         List<Model> models = asideConfig.getModels();
                         selectModel = models.get(new Random().nextInt(models.size()));
                     }
                 }
 
-                speechConfig.setLinesIndex(linesIndex);
-                speechConfig.setLines(sentenceInfo.getContent());
-                speechConfig.setGroup(selectModel.getGroup());
-                speechConfig.setName(selectModel.getName());
-                speechConfig.setMood("默认");
+                roleSpeechConfig.setLinesIndex(linesIndex);
+                roleSpeechConfig.setLines(sentenceInfo.getContent());
+                roleSpeechConfig.setGroup(selectModel.getGroup());
+                roleSpeechConfig.setName(selectModel.getName());
+                roleSpeechConfig.setMood("默认");
 
-                speechConfigs.add(speechConfig);
+                roleSpeechConfigs.add(roleSpeechConfig);
             });
         });
 
-        return speechConfigs;
+        return roleSpeechConfigs;
     }
 
-    public List<SpeechConfig> queryRoleSpeeches(String project, String chapter) throws IOException {
-        List<SpeechConfig> speechConfigs = pathConfig.getSpeechConfigs(project, chapter);
-        speechConfigs.sort(Comparator.comparing(
-                SpeechConfig::getLinesIndex, // 确保我们比较的是字符串
-                Comparator.comparing(
-                        (String s) -> Integer.parseInt(s.split("-")[0])
-                ).thenComparing(
-                        (String s) -> Integer.parseInt(s.split("-")[1])
-                )
-        ));
-        Path wavPath = pathConfig.getLinesAudioDirPath(project, chapter);
-        if (Files.exists(wavPath)) {
-            Map<String, String> fileNameMap = Files.list(wavPath).map(path -> path.getFileName().toString())
-                    .collect(Collectors.toMap((String name) -> {
-                        String[] split = name.replace(".wav", "").split("-");
-                        return split[0] + "-" + split[1];
-                    }, Function.identity()));
-            for (SpeechConfig speechConfig : speechConfigs) {
-                if (fileNameMap.containsKey(speechConfig.getLinesIndex())) {
-                    String wavUrl = pathConfig.getLinesAudioUrl(project, chapter, fileNameMap.get(speechConfig.getLinesIndex()));
-                    speechConfig.setAudioUrl(wavUrl);
-                }
-            }
-        }
-        return speechConfigs;
-    }
-
-    public void combineAudio(String project, String chapter) throws IOException {
-        List<SpeechConfig> speechConfigs = pathConfig.getSpeechConfigs(project, chapter);
-        Map<String, SpeechConfig> speechConfigMap = speechConfigs.stream().collect(Collectors.toMap(SpeechConfig::getLinesIndex, Function.identity()));
-
-//        ProjectConfig projectConfig = pathConfig.getProjectConfig(project);
-//        AudioConfig audioConfig = projectConfig.getAudioConfig();
-
-//        Integer audioMergeInterval = 0;
-//        if (Objects.nonNull(audioConfig) && Objects.nonNull(audioConfig.getAudioMergeInterval())) {
-//            audioMergeInterval = audioConfig.getAudioMergeInterval() / 100 * 100;
-//        }
-//
-//        String tmpAudio = "";
-//        if (audioMergeInterval > 0) {
-//            tmpAudio = Path.of("tmp/tmpAudio.wav").toAbsolutePath().toString();
-//            Files.createDirectories(Path.of(tmpAudio).toAbsolutePath().getParent());
-//            AudioUtils.makeSilenceWav(tmpAudio, Long.valueOf(audioMergeInterval));
-//        }
-
-        Path audioDirPath = pathConfig.getLinesAudioDirPath(project, chapter);
-        if (Files.exists(audioDirPath)) {
-            List<String> filePaths = new ArrayList<>();
-
-            Files.list(audioDirPath).forEach(path -> {
-                String[] split = path.getFileName().toString().replace(".wav", "").split("-");
-                String linesIndex = split[0] + "-" + split[1];
-                String absolutePath = path.toAbsolutePath().toString();
-                filePaths.add(path.getFileName().toString());
-
-                long audioDuration;
-                try {
-                    audioDuration = AudioUtils.getAudioTime(absolutePath);
-                    if (speechConfigMap.containsKey(linesIndex)) {
-                        speechConfigMap.get(linesIndex).setDuration(audioDuration);
-                    }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
-            filePaths.sort(Comparator.comparing(
-                    String::toString, // 确保我们比较的是字符串
+    public SpeechConfig querySpeechConfig(String project, String chapter) throws IOException {
+        SpeechConfig speechConfig = pathConfig.getSpeechConfig(project, chapter);
+        if (Objects.nonNull(speechConfig)) {
+            List<RoleSpeechConfig> roleSpeechConfigs = speechConfig.getRoleSpeechConfigs();
+            roleSpeechConfigs.sort(Comparator.comparing(
+                    RoleSpeechConfig::getLinesIndex, // 确保我们比较的是字符串
                     Comparator.comparing(
                             (String s) -> Integer.parseInt(s.split("-")[0])
                     ).thenComparing(
                             (String s) -> Integer.parseInt(s.split("-")[1])
                     )
             ));
-
-            List<String> mewList = new ArrayList<>();
-            for (int i = 0; i < filePaths.size(); i++) {
-                mewList.add(pathConfig.getChapterPath(project, chapter) + PathConfig.dir_audio + File.separator + filePaths.get(i));
-//                if (audioMergeInterval > 0) {
-//                    if (i < filePaths.size() - 1) {
-//                        mewList.add(tmpAudio);
-//                    }
-//                }
+            Path wavPath = pathConfig.getLinesAudioDirPath(project, chapter);
+            if (Files.exists(wavPath)) {
+                Map<String, String> fileNameMap = Files.list(wavPath).map(path -> path.getFileName().toString())
+                        .collect(Collectors.toMap((String name) -> {
+                            String[] split = name.replace(".wav", "").split("-");
+                            return split[0] + "-" + split[1];
+                        }, Function.identity(), (v1, v2) -> v2));
+                for (RoleSpeechConfig roleSpeechConfig : roleSpeechConfigs) {
+                    if (fileNameMap.containsKey(roleSpeechConfig.getLinesIndex())) {
+                        String wavUrl = pathConfig.getLinesAudioUrl(project, chapter, fileNameMap.get(roleSpeechConfig.getLinesIndex()));
+                        roleSpeechConfig.setAudioUrl(wavUrl);
+                    }
+                }
             }
-
-            AudioUtils.combineWav(pathConfig.getOutAudioPath(project, chapter), mewList);
-
-            pathConfig.writeSpeechConfigs(project, chapter, speechConfigMap.values().stream().toList());
         }
 
+        return speechConfig;
+    }
+
+    public void combineAudio(String project, String chapter, SpeechConfig speechConfig) throws IOException {
+        if (Objects.isNull(speechConfig) || CollectionUtils.isEmpty(speechConfig.getRoleSpeechConfigs())) {
+            return;
+        }
+
+        String chapterPath = pathConfig.getChapterPath(project, chapter);
+        String tmpFilePath = chapterPath + "tmp" + File.separator;
+
+        Map<String, RoleSpeechConfig> speechConfigMap = speechConfig.getRoleSpeechConfigs().stream()
+                .collect(Collectors.toMap(RoleSpeechConfig::getLinesIndex, Function.identity()));
+
+        ProjectConfig projectConfig = pathConfig.getProjectConfig(project);
+        AudioConfig audioConfig = projectConfig.getAudioConfig();
+
+        Integer audioMergeInterval = 0;
+        if (Objects.nonNull(audioConfig) && Objects.nonNull(audioConfig.getAudioMergeInterval())) {
+            audioMergeInterval = audioConfig.getAudioMergeInterval() / 100 * 100;
+        }
+        if (Objects.nonNull(speechConfig.getAudioMergeInterval())) {
+            audioMergeInterval = speechConfig.getAudioMergeInterval() / 100 * 100;
+        }
+
+        String tmpAudio = "";
+        if (audioMergeInterval > 0) {
+            tmpAudio = Path.of(tmpFilePath + "silentAudio.wav").toAbsolutePath().toString();
+            Files.createDirectories(Path.of(tmpAudio).toAbsolutePath().getParent());
+            try {
+                AudioUtils.generateSilentAudio(tmpAudio, Long.valueOf(audioMergeInterval));
+            } catch (Exception e) {
+                log.error("生成空白音频失败");
+                audioMergeInterval = 0;
+            }
+        }
+
+        Path audioDirPath = pathConfig.getLinesAudioDirPath(project, chapter);
+        if (Files.exists(audioDirPath)) {
+
+            Map<String, String> filePathMap = new HashMap<>();
+
+            Files.list(audioDirPath).forEach(path -> {
+                String[] split = path.getFileName().toString().replace(".wav", "").split("-");
+                String linesIndex = split[0] + "-" + split[1];
+
+                try {
+                    RoleSpeechConfig roleSpeechConfig = speechConfigMap.get(linesIndex);
+                    if (Objects.nonNull(roleSpeechConfig)
+                            && !Objects.equals(roleSpeechConfig.getCombineIgnore(), Boolean.TRUE)) {
+
+                        String targetPath = path.toAbsolutePath().toString();
+                        long audioDuration;
+
+                        if (Objects.nonNull(roleSpeechConfig.getSpeedControl())
+                                && roleSpeechConfig.getSpeedControl() != 1) {
+                            targetPath = tmpFilePath + path.getFileName().toString();
+                            AudioUtils.audioSpeedControl(path.toAbsolutePath().toString(), roleSpeechConfig.getSpeedControl(), targetPath);
+
+                        }
+                        audioDuration = AudioUtils.getAudioTime(targetPath);
+
+                        roleSpeechConfig.setDuration(audioDuration);
+
+                        filePathMap.put(path.getFileName().toString(), targetPath);
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+            if (CollectionUtils.isEmpty(filePathMap)) {
+                return;
+            }
+
+            List<String> fileNames = filePathMap.keySet().stream().sorted(Comparator.comparing(
+                    String::toString, // 确保我们比较的是字符串
+                    Comparator.comparing(
+                            (String s) -> Integer.parseInt(s.split("-")[0])
+                    ).thenComparing(
+                            (String s) -> Integer.parseInt(s.split("-")[1])
+                    )
+            )).toList();
+
+            List<String> mewList = new ArrayList<>();
+            for (int i = 0; i < fileNames.size(); i++) {
+                mewList.add(filePathMap.get(fileNames.get(i)));
+                if (audioMergeInterval > 0) {
+                    if (i < fileNames.size() - 1) {
+                        mewList.add(tmpAudio);
+                    }
+                }
+            }
+
+            // 合并音频
+            long time = new Date().getTime();
+            String output = chapterPath + "output-" + time + ".wav";
+            AudioUtils.audioConcat(output, mewList);
+
+            // 删除之前的output
+            List<Path> deletePath = new ArrayList<>();
+            Files.list(Path.of(chapterPath)).forEach(path -> {
+                if (path.getFileName().toString().startsWith("output")
+                        && !StringUtils.equals(path.getFileName().toString(), "output-" + time + ".wav")) {
+                    deletePath.add(path);
+                }
+            });
+            for (Path path : deletePath) {
+                Files.deleteIfExists(path);
+            }
+
+            // 保存音频时长
+            SpeechConfig save = new SpeechConfig();
+            save.setAudioMergeInterval(speechConfig.getAudioMergeInterval());
+            save.setRoleSpeechConfigs(speechConfigMap.values().stream().toList());
+            pathConfig.writeSpeechConfig(project, chapter, save);
+
+            // 删除tmp文件夹
+        }
+
+    }
+
+    public static List<Role> combineRoles(List<Role> roles, List<LinesMapping> linesMappings) {
+        Map<String, Long> linesRoleCountMap = linesMappings.stream()
+                .collect(Collectors.groupingBy(LinesMapping::getRole, Collectors.counting()));
+        List<Role> filterRoles = roles.stream().filter(r -> linesRoleCountMap.containsKey(r.getRole())).toList();
+
+        Set<String> filterRoleSet = filterRoles.stream().map(Role::getRole).collect(Collectors.toSet());
+        List<Role> newRoleList = linesMappings.stream().filter(m -> !filterRoleSet.contains(m.getRole()))
+                .map(m -> {
+                    Role role = new Role();
+                    role.setRole(m.getRole());
+                    role.setGender(m.getGender());
+                    role.setAgeGroup(m.getAgeGroup());
+                    return role;
+                })
+                .collect(Collectors.toMap(Role::getRole, Function.identity(), (v1, v2) -> v1))
+                .values().stream().toList();
+
+        List<Role> newRoles = new ArrayList<>();
+        newRoles.addAll(filterRoles);
+        newRoles.addAll(newRoleList);
+        newRoles.sort(Comparator.comparingLong((Role r) -> linesRoleCountMap.get(r.getRole())).reversed());
+        return newRoles;
+    }
+
+    public AiResult reCombineAiResult(String project, String chapterName, AiResult aiResult) throws IOException {
+
+        ChapterInfo chapterInfo = pathConfig.getChapterInfo(project, chapterName);
+
+        Map<String, ChapterInfo.SentenceInfo> sentenceInfoMap = new HashMap<>();
+        chapterInfo.getLineInfos().forEach(lineInfo -> {
+            lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
+                sentenceInfoMap.put(lineInfo.getIndex() + "-" + sentenceInfo.getIndex(), sentenceInfo);
+            });
+        });
+
+        List<Role> roles = aiResult.getRoles();
+        List<LinesMapping> linesMappings = aiResult.getLinesMappings();
+        for (LinesMapping linesMapping : linesMappings) {
+            if (sentenceInfoMap.containsKey(linesMapping.getLinesIndex())) {
+                linesMapping.setLines(sentenceInfoMap.get(linesMapping.getLinesIndex()).getContent());
+            }
+        }
+
+        // 大模型总结的角色列表有时候会多也会少
+        List<Role> combineRoles = ChapterService.combineRoles(roles, linesMappings);
+
+        AiResult result = new AiResult();
+        result.setLinesMappings(linesMappings);
+        result.setRoles(combineRoles);
+        return result;
+    }
+
+    public void saveRoleAndLinesMapping(String project, String chapterName, AiResult aiResult) throws IOException {
+        Path rolesJsonPath = Path.of(pathConfig.getRolesFilePath(project, chapterName));
+        Files.write(rolesJsonPath, JSON.toJSONString(aiResult.getRoles()).getBytes());
+
+        Path linesMappingsJsonPath = Path.of(pathConfig.getLinesMappingsFilePath(project, chapterName));
+        Files.write(linesMappingsJsonPath, JSON.toJSONString(aiResult.getLinesMappings()).getBytes());
+
+    }
+
+    public ChapterConfig setStep(String project, String chapterName, Integer step) throws IOException {
+        Path chapterConfigpath = Path.of(pathConfig.getChapterPath(project, chapterName)
+                + PathConfig.file_chapterConfig);
+        ChapterConfig chapterConfig = new ChapterConfig();
+        if (Files.exists(chapterConfigpath)) {
+            chapterConfig = JSON.parseObject(Optional.ofNullable(Files.readString(chapterConfigpath))
+                    .orElse("{}"), ChapterConfig.class);
+        }
+        if (Objects.isNull(chapterConfig.getProcessStep())) {
+            chapterConfig.setProcessStep(1);
+        }
+        chapterConfig.setProcessStep(Math.max(step, chapterConfig.getProcessStep()));
+
+        Files.write(chapterConfigpath, JSON.toJSONBytes(chapterConfig));
+        return chapterConfig;
     }
 }

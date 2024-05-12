@@ -52,11 +52,18 @@ export interface ProjectAudioConfig {
   audioMergeInterval: number;
 }
 
+export interface ProjectTextConfig {
+  chapterTitlePattern: string;
+  linesModifiers: string[];
+}
+
 export interface ProjectConfig {
   project: string;
   globalConfig: ProjectGlobalConfig;
   roleConfigs: ProjectRoleConfig[];
   audioConfig: ProjectAudioConfig;
+  textConfig: ProjectTextConfig;
+  chapterNum: number;
 }
 
 export function createProjectConfig(params: ProjectConfig) {
@@ -69,4 +76,22 @@ export function queryProjectConfig(params: { project: string }) {
 
 export function preCheckProjectConfig(params: { project: string }) {
   return axios.post<boolean>('/api/project/preCheckProjectConfig', params);
+}
+
+export function modifiersTest(params: {
+  testText: string;
+  linesModifiers: string[];
+}) {
+  return axios.post<string[]>('/api/project/modifiersTest', params);
+}
+
+export function splitTmpChapters(params: {
+  project: string;
+  chapterTitlePattern: string;
+}) {
+  return axios.post<string[]>('/api/project/splitTmpChapters', params);
+}
+
+export function deleteProject(params: { project: string }) {
+  return axios.post('/api/project/deleteProject', params);
 }

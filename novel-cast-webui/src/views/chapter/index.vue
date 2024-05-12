@@ -29,7 +29,12 @@
                       "
                     >
                       <div
-                        style="width: 100%; display: flex; align-items: center"
+                        style="
+                          width: 100%;
+                          display: flex;
+                          justify-content: space-between;
+                          align-items: center;
+                        "
                       >
                         <div style="width: 60%">
                           <a-typography-text style="font-size: 1.8rem">
@@ -42,8 +47,8 @@
                             }}
                           </a-typography-text>
                         </div>
-                        <div style="margin-left: 1rem">
-                          <a-space>
+                        <div>
+                          <a-space size="large">
                             <a-button
                               type="primary"
                               @click="showChapterText(item.chapterName)"
@@ -76,9 +81,8 @@
                             <a-button
                               size="mini"
                               type="outline"
-                              :disabled="item.step + 1 < 1"
                               @click="handleLinesView(item.chapterName)"
-                              >查看
+                              >{{ item.step > 0 ? '查看' : '配置' }}
                             </a-button>
                           </a-step>
                           <a-step>
@@ -86,9 +90,9 @@
                             <a-button
                               size="mini"
                               type="outline"
-                              :disabled="item.step + 1 < 2"
+                              :disabled="item.step < 1"
                               @click="handleModelView(item.chapterName)"
-                              >查看
+                              >{{ item.step > 1 ? '查看' : '配置' }}
                             </a-button>
                           </a-step>
                           <a-step>
@@ -96,9 +100,9 @@
                             <a-button
                               size="mini"
                               type="outline"
-                              :disabled="item.step + 1 < 3"
+                              :disabled="item.step < 2"
                               @click="handleRoleSpeechView(item.chapterName)"
-                              >查看
+                              >{{ item.step > 4 ? '查看' : '配置' }}
                             </a-button>
                           </a-step>
                           <a-step> 语音合成</a-step>
@@ -188,10 +192,8 @@
         :footer="false"
         @cancel="handleDrawerClose"
       >
-        <div style="padding-top: 20px">
+        <div>
           <LinesView
-            v-model:lines-view-visible="linesViewVisible"
-            v-model:model-view-visible="modelViewVisible"
             v-model:chapter-name="getChapterName"
             @lines-pointer="linesPointer"
             @close-drawer-fetch-data="closeDrawerFetchData"
@@ -211,10 +213,8 @@
         :footer="false"
         @cancel="handleDrawerClose"
       >
-        <div style="padding-top: 20px">
+        <div>
           <ModelView
-            v-model:model-view-visible="modelViewVisible"
-            v-model:speech-config-view-visible="speechConfigViewVisible"
             v-model:chapter-name="getChapterName"
             @lines-pointer="linesPointer"
             @lines-pointer-for-role="linesPointerForRole"
@@ -235,12 +235,13 @@
         :footer="false"
         @cancel="handleDrawerClose"
       >
-        <div style="padding-top: 20px">
+        <div>
           <RoleSpeechView
             v-model:speech-config-view-visible="speechConfigViewVisible"
             v-model:chapter-name="getChapterName"
             @lines-pointer="linesPointer"
             @close-drawer-fetch-data="closeDrawerFetchData"
+            @refresh-chapter-text="refreshChapterText"
           />
         </div>
       </a-drawer>
@@ -312,44 +313,40 @@
       pagination.current = params.current;
       pagination.total = data.total;
 
-      const resultMap = new Map<string, LinesDuration[]>();
+      durationMap.value = new Map<string, LinesDuration[]>();
       chapters.value.forEach((item) => {
-        const list = item.speechConfigs;
-        list.sort((a, b) => {
-          // 将字符串分割成数组
-          const [firstA, secondA] = a.linesIndex.split('-');
-          const [firstB, secondB] = b.linesIndex.split('-');
+        const list = item.roleSpeechConfigs;
+        if (list && list.length > 0) {
+          list.sort((a, b) => {
+            // 将字符串分割成数组
+            const [firstA, secondA] = a.linesIndex.split('-');
+            const [firstB, secondB] = b.linesIndex.split('-');
 
-          // 比较第一个数字
-          if (firstA !== firstB) {
-            return Number(firstA) - Number(firstB);
-          }
+            // 比较第一个数字
+            if (firstA !== firstB) {
+              return Number(firstA) - Number(firstB);
+            }
 
-          // 如果第一个数字相同，比较第二个数字
-          return Number(secondA) - Number(secondB);
-        });
+            // 如果第一个数字相同，比较第二个数字
+            return Number(secondA) - Number(secondB);
+          });
 
-        const linesDurations: LinesDuration[] = [];
-        let startTime = 0;
-        list.forEach((item1) => {
-          const linesDuration: LinesDuration = {
-            start: startTime,
-            end:
-              startTime +
-              item1.duration +
-              (item.audioConfig?.audioMergeInterval || 0),
-            index: item1.linesIndex,
-          };
-          linesDurations.push(linesDuration);
-          startTime +=
-            item1.duration + (item.audioConfig?.audioMergeInterval || 0);
-        });
-        resultMap.set(item.chapterName, linesDurations);
+          const linesDurations: LinesDuration[] = [];
+          let startTime = 0;
+          list.forEach((item1) => {
+            const linesDuration: LinesDuration = {
+              start: startTime,
+              end: startTime + item1.duration + (item.audioMergeInterval || 0),
+              index: item1.linesIndex,
+            };
+            linesDurations.push(linesDuration);
+            startTime += item1.duration + (item.audioMergeInterval || 0);
+          });
+          durationMap.value?.set(item.chapterName, linesDurations);
+        }
       });
-
-      durationMap.value = resultMap;
     } catch (err) {
-      // you can report use errorHandler or other
+      // err
     } finally {
       setLoading(false);
     }
@@ -430,7 +427,7 @@
     scrollTo(index);
   };
 
-  const showChapterText = async (chapterName: string) => {
+  const refreshChapterText = async (chapterName: string) => {
     setLoading(true);
     try {
       const { data } = await queryDetail({
@@ -446,11 +443,14 @@
     }
   };
 
+  const showChapterText = async (chapterName: string) => {
+    await refreshChapterText(chapterName);
+    scrollToTop('text-review-area');
+  };
+
   const linesViewVisible = ref(false);
-  const roleLinesViewVisible = ref(false);
-  const modelSelectedViewVisible = ref(false);
-  const speechConfigViewVisible = ref(false);
   const modelViewVisible = ref(false);
+  const speechConfigViewVisible = ref(false);
 
   const reloadAudio = (index: number) => {
     audioRefs.value.forEach((audio, i) => {
@@ -468,10 +468,8 @@
 
   const closeDrawerFetchData = () => {
     linesViewVisible.value = false;
-    roleLinesViewVisible.value = false;
-    modelSelectedViewVisible.value = false;
-    speechConfigViewVisible.value = false;
     modelViewVisible.value = false;
+    speechConfigViewVisible.value = false;
     fetchData();
     setTimeout(() => {
       if (chapterInfo.value.index) {
@@ -485,16 +483,7 @@
     closeDrawerFetchData();
     linesViewVisible.value = true;
   };
-  const handleRoleLinesView = (chapterName: string) => {
-    showChapterText(chapterName);
-    closeDrawerFetchData();
-    roleLinesViewVisible.value = true;
-  };
-  const handleModelSelectedView = (chapterName: string) => {
-    showChapterText(chapterName);
-    closeDrawerFetchData();
-    modelSelectedViewVisible.value = true;
-  };
+
   const handleRoleSpeechView = (chapterName: string) => {
     showChapterText(chapterName);
     closeDrawerFetchData();

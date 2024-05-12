@@ -8,15 +8,29 @@
           margin-bottom: 20px;
         "
       >
-        <a-button
-          type="primary"
-          :disabled="!!processFlag"
-          @click="handleStartSpeechesCreate"
-          >开始生成语音</a-button
-        >
-        <a-space>
-          <span>顺序播放开始序号</span>
-          <a-input v-model="playStartIndex" style="width: 100px" />
+        <a-space size="large">
+          <a-button
+            type="primary"
+            status="success"
+            size="large"
+            :loading="loading"
+            @click="handleCreateSpeechConfig"
+            >生成语音配置
+          </a-button>
+          <a-button
+            type="primary"
+            :disabled="
+              !!processFlag || !roleSpeechConfigs || !roleSpeechConfigs.length
+            "
+            @click="handleStartSpeechesCreate"
+            >开始生成语音</a-button
+          >
+        </a-space>
+        <a-space size="large">
+          <div>
+            <span style="margin-right: 10px">顺序播放开始序号</span>
+            <a-input v-model="playStartIndex" style="width: 100px" />
+          </div>
           <a-button
             type="primary"
             status="success"
@@ -28,17 +42,20 @@
         </a-space>
       </div>
       <a-table
+        id="speechConfigTable"
         :columns="columns"
-        :data="speechConfigs"
+        :data="roleSpeechConfigs"
         :pagination="false"
         :size="'large'"
         :bordered="{ cell: true }"
         column-resizable
+        @row-click="rowClick"
       >
         <template #model="{ record }">
           <a-cascader
             v-model="record.model"
             :options="speechModelData"
+            popup-container="#speechConfigTable"
             path-mode
             @change="(value) => {
               record.group = (value as string[])[0];
@@ -49,33 +66,47 @@
         <template #mood="{ record }">
           <a-select
             v-model="record.mood"
+            popup-container="#speechConfigTable"
             :options="computedMoods(record.group + '-' + record.name)"
           ></a-select>
         </template>
+        <template #speedControl="{ record }">
+          <a-select
+            v-model="record.speedControl"
+            default-value="1"
+            popup-container="#speechConfigTable"
+            :options="speedControlOptions"
+          />
+        </template>
+        <template #lines="{ record }">
+          <a-textarea v-model="record.lines"></a-textarea>
+        </template>
         <template #operations="{ rowIndex, record }">
-          <a-space size="medium">
-            <a-button
-              v-if="activeAudioIndex === rowIndex"
-              type="outline"
-              status="danger"
-              @click="stopAudio"
-            >
-              <template #icon>
-                <icon-mute-fill />
-              </template>
-              停止
-            </a-button>
-            <a-button
-              v-else
-              type="outline"
-              :disabled="!record.audioUrl"
-              @click="playAudio(rowIndex, record)"
-            >
-              <template #icon>
-                <icon-sound-fill />
-              </template>
-              播放
-            </a-button>
+          <a-space direction="vertical" size="medium">
+            <div>
+              <a-button
+                v-if="activeAudioIndex === rowIndex"
+                type="outline"
+                status="danger"
+                @click="stopAudio"
+              >
+                <template #icon>
+                  <icon-mute-fill />
+                </template>
+                停止
+              </a-button>
+              <a-button
+                v-else
+                type="outline"
+                :disabled="!record.audioUrl"
+                @click="playAudio(rowIndex, record)"
+              >
+                <template #icon>
+                  <icon-sound-fill />
+                </template>
+                播放
+              </a-button>
+            </div>
             <a-popconfirm
               content="重新生成会覆盖原文件！"
               type="error"
@@ -89,12 +120,38 @@
                 重新生成
               </a-button>
             </a-popconfirm>
+            <a-button
+              :disabled="processFlag"
+              :status="record.combineIgnore ? 'warning' : 'normal'"
+              @click="() => (record.combineIgnore = !record.combineIgnore)"
+            >
+              {{ record.combineIgnore ? '已选择忽略' : '合成时忽略' }}
+            </a-button>
           </a-space>
         </template>
       </a-table>
     </div>
     <div style="margin-bottom: 60px">
       <a-space style="margin-top: 20px; float: right" size="large">
+        <div style="display: flex; align-items: center">
+          <span style="white-space: nowrap; margin-right: 10px"
+            >语音合成间隔</span
+          >
+          <a-input-number
+            v-model="audioMergeInterval"
+            :default-value="0"
+            :step="100"
+            :min="0"
+            mode="button"
+            style="width: 150px"
+            @blur="
+              () => {
+                audioMergeInterval = Math.floor(audioMergeInterval / 100) * 100;
+              }
+            "
+          />
+          <span style="white-space: nowrap; margin-left: 10px">毫秒</span>
+        </div>
         <a-button
           type="primary"
           status="danger"
@@ -119,14 +176,16 @@
     ChapterParams,
     combineAudio,
     createSpeech,
-    querySpeechConfigs,
-    SpeechConfig,
-    SpeechCreate,
+    querySpeechConfig,
+    RoleSpeechConfig,
+    SpeechCreateParams,
     startSpeechesCreate,
+    SpeechConfigParams,
+    createSpeechConfig,
   } from '@/api/chapter';
   import useLoading from '@/hooks/loading';
   import { querySpeechModels, SpeechModelGroup } from '@/api/model';
-  import { CascaderOption, Message } from '@arco-design/web-vue';
+  import { CascaderOption, Message, Modal } from '@arco-design/web-vue';
 
   const route = useRoute();
   const props = defineProps({
@@ -139,15 +198,21 @@
     },
   });
 
-  const emits = defineEmits(['closeDrawerFetchData', 'linesPointer']);
+  const emits = defineEmits([
+    'closeDrawerFetchData',
+    'linesPointer',
+    'refreshChapterText',
+  ]);
   const { loading, setLoading } = useLoading();
 
   const audioElement = ref<HTMLAudioElement | null>(null); // ref 对象引用到 audio 元素
   const activeAudioIndex = ref<number>(-1);
   const activeCreateIndex = ref<number>(-1);
 
+  const roleSpeechConfigs = ref<RoleSpeechConfig[]>([]);
+  const audioMergeInterval = ref<number>(0);
   const processFlag = ref<boolean>(false);
-  const speechConfigs = ref<SpeechConfig[]>([]);
+  const creatingIndex = ref<string>('');
 
   const columns = ref<TableColumnData[]>([
     {
@@ -158,7 +223,6 @@
     {
       title: '角色',
       dataIndex: 'role',
-      width: 120,
     },
     {
       title: '模型',
@@ -169,51 +233,103 @@
       title: '感情',
       dataIndex: 'mood',
       slotName: 'mood',
-      width: 80,
+    },
+    {
+      title: '速度控制',
+      dataIndex: 'speedControl',
+      slotName: 'speedControl',
+      width: 100,
     },
     {
       title: '台词',
       dataIndex: 'lines',
+      slotName: 'lines',
     },
     {
       title: '操作',
       dataIndex: 'operations',
       slotName: 'operations',
-      width: 150,
     },
   ]);
+
+  const speedControlOptions = [
+    {
+      label: '0.25',
+      value: 0.25,
+    },
+    {
+      label: '0.5',
+      value: 0.5,
+    },
+    {
+      label: '0.75',
+      value: 0.75,
+    },
+    {
+      label: '1(正常)',
+      value: 1,
+    },
+    {
+      label: '1.25',
+      value: 1.25,
+    },
+    {
+      label: '1.5',
+      value: 1.5,
+    },
+    {
+      label: '1.75',
+      value: 1.75,
+    },
+    {
+      label: '2',
+      value: 2,
+    },
+  ];
 
   const close = () => {
     emits('linesPointer', undefined);
     emits('closeDrawerFetchData');
   };
 
+  const rowClick = (record) => {
+    emits('linesPointer', record.linesIndex);
+  };
+
   const markedLines = (index: string) => {
     emits('linesPointer', index);
   };
 
-  const getRoleSpeechData = async () => {
-    const { data } = await querySpeechConfigs({
+  const queryRoleSpeechData = () => {
+    return querySpeechConfig({
       project: route.query.project as string,
       chapterName: props.chapterName as string,
     });
-    processFlag.value = data.processFlag;
-    speechConfigs.value = data.speechConfigs.map((item) => {
+  };
+
+  const getRoleSpeechData = async () => {
+    const { data } = await queryRoleSpeechData();
+    roleSpeechConfigs.value = data.roleSpeechConfigs.map((item) => {
       return {
         ...item,
         model: [item.group, item.name],
       };
     });
+    processFlag.value = data.processFlag || false;
+    audioMergeInterval.value = data.audioMergeInterval;
+    creatingIndex.value = data.creatingIndex;
   };
 
   const playAll = ref(false);
   const playStartIndex = ref<string>('');
 
-  const playAudio = (rowIndex: number, record: SpeechConfig) => {
+  const playAudio = (rowIndex: number, record: RoleSpeechConfig) => {
     markedLines(record.linesIndex);
     if (audioElement.value) {
       // 设置音频源
       audioElement.value.src = record.audioUrl;
+      // 设置播放速度
+      audioElement.value.playbackRate = record.speedControl || 1;
       // 播放音频
       audioElement.value.play();
       activeAudioIndex.value = rowIndex;
@@ -222,7 +338,7 @@
 
   const playNext = () => {
     activeAudioIndex.value += 1;
-    const roleSpeech = speechConfigs.value[activeAudioIndex.value];
+    const roleSpeech = roleSpeechConfigs.value[activeAudioIndex.value];
     if (roleSpeech) {
       setTimeout(() => {
         playAudio(activeAudioIndex.value, roleSpeech);
@@ -233,7 +349,10 @@
   };
 
   const handleAudioEnded = () => {
-    if (playAll.value && activeAudioIndex.value < speechConfigs.value.length) {
+    if (
+      playAll.value &&
+      activeAudioIndex.value < roleSpeechConfigs.value.length
+    ) {
       playNext();
     } else {
       activeAudioIndex.value = -1;
@@ -255,7 +374,7 @@
     playAll.value = true;
     if (playStartIndex.value) {
       let start = -1;
-      speechConfigs.value.forEach((item, index) => {
+      roleSpeechConfigs.value.forEach((item, index) => {
         if (item.linesIndex === playStartIndex.value) {
           start = index - 1;
         }
@@ -267,7 +386,7 @@
 
   const handleCreateRoleSpeech = async (
     rowIndex: number,
-    speechConfig: SpeechConfig
+    roleSpeechConfig: RoleSpeechConfig
   ) => {
     try {
       setLoading(true);
@@ -275,9 +394,10 @@
       await createSpeech({
         project: route.query.project as string,
         chapterName: props.chapterName as string,
-        speechConfig,
-      } as SpeechCreate);
+        roleSpeechConfig,
+      } as SpeechCreateParams);
       await getRoleSpeechData();
+      emits('refreshChapterText', props.chapterName);
     } finally {
       setLoading(false);
       activeCreateIndex.value = -1;
@@ -313,21 +433,17 @@
       .map((mood) => mood.name);
   };
 
-  const handleStartSpeechesCreate = async () => {
-    await startSpeechesCreate({
-      project: route.query.project as string,
-      chapterName: props.chapterName as string,
-    } as ChapterParams);
-    processFlag.value = true;
-  };
-
   const handleCombineAudio = async () => {
     try {
       setLoading(true);
       const { msg } = await combineAudio({
         project: route.query.project as string,
         chapterName: props.chapterName as string,
-      } as ChapterParams);
+        speechConfig: {
+          roleSpeechConfigs: roleSpeechConfigs.value,
+          audioMergeInterval: audioMergeInterval.value,
+        },
+      } as SpeechConfigParams);
       Message.success(msg);
     } finally {
       setLoading(false);
@@ -336,9 +452,9 @@
   const hasEmptyAudioUrl = () => {
     // 检查是否有空的 audioUrl
     return (
-      !speechConfigs.value ||
-      speechConfigs.value.length === 0 ||
-      speechConfigs.value.some(
+      !roleSpeechConfigs.value ||
+      roleSpeechConfigs.value.length === 0 ||
+      roleSpeechConfigs.value.some(
         (item) =>
           !item.audioUrl || item.audioUrl === '' || item.audioUrl == null
       )
@@ -347,36 +463,65 @@
 
   const hasAudioUrl = () => {
     return (
-      speechConfigs.value &&
-      speechConfigs.value.length !== 0 &&
-      speechConfigs.value.some((item) => item.audioUrl)
+      roleSpeechConfigs.value &&
+      roleSpeechConfigs.value.length !== 0 &&
+      roleSpeechConfigs.value.some((item) => item.audioUrl)
     );
   };
 
   let timer: any = null;
   const startFetchData = () => {
-    if (hasEmptyAudioUrl()) {
-      if (!timer) {
-        timer = setInterval(() => {
-          if (hasEmptyAudioUrl()) {
-            getRoleSpeechData();
-          } else {
-            clearInterval(timer);
-            timer = null;
-          }
-        }, 5000);
-      }
-    } else if (timer) {
-      clearInterval(timer);
-      timer = null;
+    if (!timer) {
+      timer = setInterval(() => {
+        if (processFlag.value) {
+          getRoleSpeechData();
+        } else {
+          clearInterval(timer);
+          timer = null;
+        }
+      }, 5000);
+    }
+  };
+
+  const handleStartSpeechesCreate = async () => {
+    await startSpeechesCreate({
+      project: route.query.project as string,
+      chapterName: props.chapterName as string,
+    } as ChapterParams);
+    processFlag.value = true;
+    startFetchData();
+  };
+
+  const handleCreateSpeechConfigWr = async () => {
+    try {
+      setLoading(true);
+      const { msg } = await createSpeechConfig({
+        project: route.query.project as string,
+        chapterName: props.chapterName as string,
+      } as ChapterParams);
+      await getRoleSpeechData();
+      Message.success(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateSpeechConfig = () => {
+    if (roleSpeechConfigs.value && roleSpeechConfigs.value.length) {
+      Modal.warning({
+        title: '生成语音配置',
+        content: '再次生成会覆盖现有数据',
+        onOk() {
+          handleCreateSpeechConfigWr();
+        },
+      });
+    } else {
+      handleCreateSpeechConfigWr();
     }
   };
 
   onMounted(() => {
     getSpeechModels();
-    if (hasEmptyAudioUrl()) {
-      startFetchData();
-    }
   });
 
   onUnmounted(() => {

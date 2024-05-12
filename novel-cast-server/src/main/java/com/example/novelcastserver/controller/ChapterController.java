@@ -7,6 +7,7 @@ import com.example.novelcastserver.config.PathConfig;
 import com.example.novelcastserver.exception.BizException;
 import com.example.novelcastserver.service.AiInferenceService;
 import com.example.novelcastserver.service.ChapterService;
+import com.example.novelcastserver.service.ModelConfigService;
 import com.example.novelcastserver.utils.AudioUtils;
 import com.example.novelcastserver.utils.ChapterExtractor;
 import jakarta.annotation.Resource;
@@ -20,17 +21,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -43,6 +39,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/chapter")
 public class ChapterController {
 
+    public static final Map<String, String> audioCreateProcessMap = new HashMap<>();
+
     @Resource
     private RestTemplate restTemplate;
 
@@ -52,10 +50,13 @@ public class ChapterController {
 
     private final AiInferenceService aiInferenceService;
 
-    public ChapterController(PathConfig pathConfig, ChapterService chapterService, AiInferenceService aiInferenceService) {
+    private final ModelConfigService modelConfigService;
+
+    public ChapterController(PathConfig pathConfig, ChapterService chapterService, AiInferenceService aiInferenceService, ModelConfigService modelConfigService) {
         this.pathConfig = pathConfig;
         this.chapterService = chapterService;
         this.aiInferenceService = aiInferenceService;
+        this.modelConfigService = modelConfigService;
     }
 
 
@@ -77,40 +78,26 @@ public class ChapterController {
             throw new BizException("项目不存在~");
         }
 
-//        ProjectConfig projectConfig = pathConfig.getProjectConfig(vo.getProject());
-
         List<Chapter> list = Files.list(projectPath).map(path -> {
                     Chapter chapter = new Chapter();
                     String chapterName = path.getFileName().toString();
                     chapter.setChapterName(chapterName);
-                    AtomicInteger i = new AtomicInteger(1);
+                    AtomicInteger processStep = new AtomicInteger(0);
                     try {
                         Files.list(path).forEach(path1 -> {
-                            if ("chapterInfo.json".equals(path1.getFileName().toString())) {
+                            if ("chapterConfig.json".equals(path1.getFileName().toString())) {
                                 try {
-                                    ChapterInfo chapterInfo = JSON.parseObject(Files.readString(path1), ChapterInfo.class);
-                                    if (Objects.nonNull(chapterInfo) && Objects.nonNull(chapterInfo.getPrologue()) && chapterInfo.getPrologue()) {
-                                        i.set(Math.max(i.get(), 1));
+                                    ChapterConfig chapterConfig = JSON.parseObject(Files.readString(path1), ChapterConfig.class);
+                                    if (Objects.nonNull(chapterConfig)
+                                            && Objects.nonNull(chapterConfig.getProcessStep())) {
+                                        processStep.set(chapterConfig.getProcessStep());
                                     }
                                 } catch (IOException e) {
                                     throw new RuntimeException(e);
                                 }
                             }
-                            if ("modelConfig.json".equals(path1.getFileName().toString())) {
-                                i.set(Math.max(i.get(), 2));
-                            }
-                            if ("audio".equals(path1.getFileName().toString())) {
-                                try {
-                                    if (Files.list(path1).findAny().isPresent()) {
-                                        i.set(Math.max(i.get(), 3));
-                                    }
-                                } catch (IOException e) {
-                                    throw new BizException(e.getMessage());
-                                }
-                            }
-                            if ("output.wav".equals(path1.getFileName().toString())) {
-                                i.set(Math.max(i.get(), 4));
-                                chapter.setOutAudioUrl(pathConfig.getOutAudioUrl(project, chapterName));
+                            if (path1.getFileName().toString().startsWith("output")) {
+                                chapter.setOutAudioUrl(pathConfig.getOutAudioUrl(project, chapterName, path1.getFileName().toString()));
                             }
                         });
                     } catch (IOException e) {
@@ -118,14 +105,30 @@ public class ChapterController {
                     }
 
                     try {
-                        chapter.setSpeechConfigs(pathConfig.getSpeechConfigs(project, chapterName));
-//                        if (Objects.nonNull(projectConfig)) {
-//                            chapter.setAudioConfig(projectConfig.getAudioConfig());
-//                        }
+
+                        ProjectConfig projectConfig = pathConfig.getProjectConfig(project);
+                        if (Objects.nonNull(projectConfig)
+                                && Objects.nonNull(projectConfig.getAudioConfig())
+                                && Objects.nonNull(projectConfig.getAudioConfig().getAudioMergeInterval())
+                                && projectConfig.getAudioConfig().getAudioMergeInterval() != 0) {
+                            chapter.setAudioMergeInterval(projectConfig.getAudioConfig().getAudioMergeInterval());
+                        }
+
+                        SpeechConfig speechConfig = pathConfig.getSpeechConfig(project, chapterName);
+                        if (Objects.nonNull(speechConfig)) {
+                            chapter.setRoleSpeechConfigs(speechConfig.getRoleSpeechConfigs());
+
+                            if (Objects.nonNull(speechConfig.getAudioMergeInterval())
+                                    && speechConfig.getAudioMergeInterval() != 0) {
+                                chapter.setAudioMergeInterval(speechConfig.getAudioMergeInterval());
+                            }
+                        }
+
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                    chapter.setStep(i.get());
+                    chapter.setStep(processStep.get());
+
                     return chapter;
                 })
                 .sorted(Comparator.comparingInt(s -> Integer.parseInt(s.getChapterName().split("-")[0])))
@@ -156,7 +159,8 @@ public class ChapterController {
                     Files.writeString(aiResultJsonPath, text);
                 }
                 aiResult = JSON.parseObject(text, AiResult.class);
-                aiResult = genRoleAndMapping(vo, aiResult);
+                aiResult = chapterService.reCombineAiResult(vo.getProject(), vo.getChapterName(), aiResult);
+                chapterService.saveRoleAndLinesMapping(vo.getProject(), vo.getChapterName(), aiResult);
             }
         } else {
             aiResult.setRoles(JSON.parseArray(Files.readString(rolesJsonPath), Role.class));
@@ -185,100 +189,39 @@ public class ChapterController {
 
     @PostMapping(value = "aiInference")
     public Flux<String> aiInference(@RequestBody ChapterVO vo) throws IOException {
-//
-//        String longString = AiInferenceService.resTemp;
-//        int charactersPerSecond = 40;
-//
-//        return Flux.interval(Duration.ofMillis(200))
-//                .map(i -> longString.substring((int) Math.min((i * charactersPerSecond), longString.length()), (int) Math.min((i + 1) * charactersPerSecond, longString.length())))
-//                .takeWhile(s -> !s.isEmpty())
-//                .doOnNext(System.out::println); // 打印每个输出片段，仅用于演示
-//
+        return aiInferenceService.roleAndLinesInference(vo, true);
+    }
 
+    @PostMapping(value = "aiReInference")
+    public Flux<String> aiReInference(@RequestBody ChapterVO vo) throws IOException {
+        return aiInferenceService.roleAndLinesInference(vo, false);
+    }
 
-        Path chapterInfoPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + "chapterInfo.json");
-        ChapterInfo chapterInfo = JSON.parseObject(Files.readAllBytes(chapterInfoPath), ChapterInfo.class);
+    @PostMapping(value = "aiResultFormat")
+    public Result<Object> aiResultFormat(@RequestBody AiResultFormatVO vo) throws IOException {
+        AiResult aiResult = aiInferenceService.aiResultFormat(vo);
+        ModelConfig modelConfig = modelConfigService.buildModelConfig(aiResult.getRoles(), aiResult.getLinesMappings());
+        return Result.success(modelConfig);
+    }
 
+    @PostMapping(value = "saveAiReInferenceResult")
+    public Result<Object> saveAiReInferenceResult(@RequestBody AiResultFormatVO vo) throws IOException {
+        AiResult aiResult = aiInferenceService.aiResultFormat(vo);
+
+        Path aiResultPath = Path.of(pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName()));
+        Files.write(aiResultPath, JSON.toJSONBytes(aiResultPath));
+
+        chapterService.saveRoleAndLinesMapping(vo.getProject(), vo.getChapterName(), aiResult);
+
+        // 删除ignore文件
         Path aiIgnoreJsonPath = Path.of(pathConfig.getAiIgnoreFilePath(vo.getProject(), vo.getChapterName()));
         Files.deleteIfExists(aiIgnoreJsonPath);
 
+        // 删除modelConfig配置
+        Path modelConfigPath = Path.of(pathConfig.getModelConfigFilePath(vo.getProject(), vo.getChapterName()));
+        Files.deleteIfExists(modelConfigPath);
 
-        Path aiResultJsonPath = Path.of(pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName()));
-        if (Files.exists(aiResultJsonPath)) {
-            Files.write(aiResultJsonPath, new byte[0], StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
-        }
-
-        File outputFile = new File(aiResultJsonPath.toFile().getAbsolutePath());
-        return aiInferenceService.roleAndLinesInference(chapterInfo)
-                .publishOn(Schedulers.boundedElastic())
-                .doOnNext(s -> {
-                    System.out.println(s);
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile, true))) {
-                        writer.write(s);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }).onErrorResume(e -> {
-                    if (e instanceof WebClientResponseException.Unauthorized) {
-                        return Flux.just("ai api 接口认证异常，请检查api key, " + e.getMessage() + " error");
-                    }
-                    return Flux.just(e.getMessage() + " error");
-                })
-                .doOnComplete(() -> {
-                    try {
-                        parseAiInference(vo);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-
-    }
-
-    @PostMapping("parseAiInference")
-    public Result<Object> parseAiInference(@RequestBody ChapterVO vo) throws IOException {
-        String aiResultJsonPathStr = pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName());
-        Path aiResultJsonPath = Path.of(aiResultJsonPathStr);
-
-        if (Files.exists(aiResultJsonPath)) {
-            String text = Files.readString(aiResultJsonPath);
-            if (text.startsWith("```json") || text.endsWith("```")) {
-                text = text.replace("```json", "").replace("```", "");
-            }
-            AiResult aiResult = JSON.parseObject(text, AiResult.class);
-            genRoleAndMapping(vo, aiResult);
-        }
         return Result.success();
-    }
-
-    private AiResult genRoleAndMapping(ChapterVO vo, AiResult aiResult) throws IOException {
-
-        ChapterInfo chapterInfo = pathConfig.getChapterInfo(vo.getProject(), vo.getChapterName());
-
-        Map<String, ChapterInfo.SentenceInfo> sentenceInfoMap = new HashMap<>();
-        chapterInfo.getLineInfos().forEach(lineInfo -> {
-            lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
-                sentenceInfoMap.put(lineInfo.getIndex() + "-" + sentenceInfo.getIndex(), sentenceInfo);
-            });
-        });
-
-        List<Role> roles = aiResult.getRoles();
-        List<LinesMapping> linesMappings = aiResult.getLinesMappings();
-        for (LinesMapping linesMapping : linesMappings) {
-            linesMapping.setLines(sentenceInfoMap.get(linesMapping.getLinesIndex()).getContent());
-        }
-
-        // 大模型总结的角色列表有时候会多也会少
-        Path rolesJsonPath = Path.of(pathConfig.getRolesFilePath(vo.getProject(), vo.getChapterName()));
-        List<Role> combineRoles = combineRoles(roles, linesMappings);
-        Files.write(rolesJsonPath, JSON.toJSONString(combineRoles).getBytes());
-
-        Path linesMappingsJsonPath = Path.of(pathConfig.getLinesMappingsFilePath(vo.getProject(), vo.getChapterName()));
-        Files.write(linesMappingsJsonPath, JSON.toJSONString(linesMappings).getBytes());
-
-        AiResult result = new AiResult();
-        result.setLinesMappings(linesMappings);
-        result.setRoles(combineRoles);
-        return result;
     }
 
     @PostMapping("ignoreAiResult")
@@ -298,40 +241,68 @@ public class ChapterController {
         }
 
         Path chapterInfoPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + "chapterInfo.json");
+
         ChapterInfo chapterInfo = JSON.parseObject(Files.readAllBytes(chapterInfoPath), ChapterInfo.class);
+
+        if (Objects.nonNull(chapterInfo) && CollectionUtils.isEmpty(chapterInfo.getLineInfos())) {
+            Path originTextPath = Path.of(pathConfig.getOriginTextPath(vo.getProject(), vo.getChapterName()));
+            List<ChapterInfo.LineInfo> lineInfos = ChapterExtractor.parseChapterInfo(Files.readString(originTextPath), Collections.emptyList());
+            chapterInfo.setLineInfos(lineInfos);
+        }
+
         return Result.success(chapterInfo);
     }
 
 
     @PostMapping("lines")
-    public Result<List<Lines>> lines(@RequestBody ChapterVO vo) throws IOException {
+    public Result<LinesParseVO> lines(@RequestBody ChapterVO vo) throws IOException {
 
         Path chapterPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()));
         if (Files.notExists(chapterPath) || !Files.isDirectory(chapterPath)) {
             throw new BizException("文件不存在");
         }
 
+        LinesParseVO linesParseVO = new LinesParseVO();
+
         Path chapterInfoPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + "chapterInfo.json");
         ChapterInfo chapterInfo = JSON.parseObject(Files.readAllBytes(chapterInfoPath), ChapterInfo.class);
 
         List<Lines> linesList = new ArrayList<>();
-        chapterInfo.getLineInfos().forEach(lineInfo -> {
-            lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
-                if (Optional.ofNullable(sentenceInfo.getLinesFlag()).orElse(false)) {
-                    Lines lines = new Lines();
-                    lines.setIndex(lineInfo.getIndex() + "-" + sentenceInfo.getIndex());
-                    lines.setLines(sentenceInfo.getContent());
-                    lines.setDelFlag(sentenceInfo.getLinesDelFlag());
-                    linesList.add(lines);
-                }
+        if (!CollectionUtils.isEmpty(chapterInfo.getLineInfos())) {
+            chapterInfo.getLineInfos().forEach(lineInfo -> {
+                lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
+                    if (Optional.ofNullable(sentenceInfo.getLinesFlag()).orElse(false)) {
+                        Lines lines = new Lines();
+                        lines.setIndex(lineInfo.getIndex() + "-" + sentenceInfo.getIndex());
+                        lines.setLines(sentenceInfo.getContent());
+                        lines.setDelFlag(sentenceInfo.getLinesDelFlag());
+                        linesList.add(lines);
+                    }
+                });
             });
-        });
+        }
+        linesParseVO.setLinesList(linesList);
 
-        return Result.success(linesList);
+        ProjectConfig projectConfig = pathConfig.getProjectConfig(vo.getProject());
+        ProjectConfig.ProjectTextConfig textConfig = projectConfig.getTextConfig();
+        if (Objects.nonNull(textConfig)) {
+            linesParseVO.setLinesModifiers(textConfig.getLinesModifiers());
+        }
+
+        Path chapterConfigPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + PathConfig.file_chapterConfig);
+        if (Files.exists(chapterConfigPath)) {
+            ChapterConfig chapterConfig = JSON.parseObject(Optional.ofNullable(Files.readString(chapterConfigPath))
+                    .orElse("{}"), ChapterConfig.class);
+            if (Objects.nonNull(chapterConfig) && !CollectionUtils.isEmpty(chapterConfig.getLinesModifiers())) {
+                linesParseVO.setLinesModifiers(chapterConfig.getLinesModifiers());
+            }
+        }
+
+        return Result.success(linesParseVO);
     }
 
-    @PostMapping("reCreateLines")
-    public Result<Object> reCreateLines(@RequestBody ChapterVO vo) throws IOException {
+    @PostMapping("parseLines")
+    public Result<Object> parseLines(@RequestBody LinesParseVO vo) throws IOException {
 
         Path chapterPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()));
         if (Files.notExists(chapterPath) || !Files.isDirectory(chapterPath)) {
@@ -341,13 +312,20 @@ public class ChapterController {
         Path chapterInfoPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + "chapterInfo.json");
         if (Files.exists(chapterPath)) {
             ChapterInfo chapterInfo = JSON.parseObject(Files.readAllBytes(chapterInfoPath), ChapterInfo.class);
-
+            List<String> linesModifiers = vo.getLinesModifiers();
 
             Path originTextPath = Path.of(pathConfig.getOriginTextPath(vo.getProject(), vo.getChapterName()));
-            List<ChapterInfo.LineInfo> lineInfos = ChapterExtractor.parseChapterInfo(Files.readString(originTextPath));
+            List<ChapterInfo.LineInfo> lineInfos = ChapterExtractor.parseChapterInfo(Files.readString(originTextPath), linesModifiers);
             chapterInfo.setLineInfos(lineInfos);
 
             Files.write(chapterInfoPath, JSON.toJSONString(chapterInfo).getBytes());
+
+            ChapterConfig chapterConfig = chapterService.setStep(vo.getProject(), vo.getChapterName(), 1);
+            chapterConfig.setLinesModifiers(vo.getLinesModifiers());
+
+            Path chapterConfigpath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName())
+                    + PathConfig.file_chapterConfig);
+            Files.write(chapterConfigpath, JSON.toJSONBytes(chapterConfig));
         }
 
         return Result.success();
@@ -447,37 +425,21 @@ public class ChapterController {
                 linesMappings = JSON.parseArray(Files.readString(linesMappingsJsonPath), LinesMapping.class);
             }
 
-            List<Role> combineRoles = combineRoles(roles, linesMappings);
+            List<Role> combineRoles = ChapterService.combineRoles(roles, linesMappings);
 
-            List<ModelConfig.RoleModelConfig> roleConfigs = combineRoles.stream().map(role -> {
-                ModelConfig.RoleModelConfig roleConfig = new ModelConfig.RoleModelConfig();
-                roleConfig.setRole(role);
-                return roleConfig;
-            }).toList();
-            List<ModelConfig.LinesConfig> linesConfigs = linesMappings.stream().map(linesMapping -> {
-                ModelConfig.LinesConfig linesConfig = new ModelConfig.LinesConfig();
-                linesConfig.setLinesMapping(linesMapping);
-                return linesConfig;
-            }).toList();
-
-
-            ModelConfig.RoleModelConfig titleRoleConfig = new ModelConfig.RoleModelConfig();
-            titleRoleConfig.setRole(new Role("标题", "未知", "未知"));
-
-            ModelConfig.RoleModelConfig asideRoleConfig = new ModelConfig.RoleModelConfig();
-            asideRoleConfig.setRole(new Role("旁白", "未知", "未知"));
-
-            List<ModelConfig.RoleModelConfig> commonRoleConfigs = new ArrayList<>(List.of(titleRoleConfig, asideRoleConfig));
-
-            modelConfig.setCommonRoleConfigs(commonRoleConfigs);
-            modelConfig.setRoleConfigs(roleConfigs);
-            modelConfig.setLinesConfigs(linesConfigs);
+            modelConfig = modelConfigService.buildModelConfig(combineRoles, linesMappings);
         } else {
             modelConfig = JSON.parseObject(Files.readString(modelConfigPath), ModelConfig.class);
         }
 
+        Path aiResultPath = Path.of(pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName()));
+        modelConfig.setAiProcess(Files.exists(aiResultPath));
+
         Path aiIgnorePath = Path.of(pathConfig.getAiIgnoreFilePath(vo.getProject(), vo.getChapterName()));
         modelConfig.setAiIgnore(Files.exists(aiIgnorePath));
+
+        Path speechConfigPath = Path.of(pathConfig.getSpeechConfigFilePath(vo.getProject(), vo.getChapterName()));
+        modelConfig.setHasSpeechConfig(Files.exists(speechConfigPath));
 
         return Result.success(modelConfig);
     }
@@ -518,58 +480,47 @@ public class ChapterController {
 
         }
 
-        // 生成语音配置
-        List<SpeechConfig> speechConfigs = chapterService.createRoleSpeechesConfig(vo.getProject(), vo.getChapterName());
-        pathConfig.writeSpeechConfigs(vo.getProject(), vo.getChapterName(), speechConfigs);
+        chapterService.setStep(vo.getProject(), vo.getChapterName(), 2);
 
         return Result.success();
     }
 
-    private List<Role> combineRoles(List<Role> roles, List<LinesMapping> linesMappings) {
-        Map<String, Long> linesRoleCountMap = linesMappings.stream()
-                .collect(Collectors.groupingBy(LinesMapping::getRole, Collectors.counting()));
-        List<Role> filterRoles = roles.stream().filter(r -> linesRoleCountMap.containsKey(r.getRole())).toList();
-
-        Set<String> filterRoleSet = filterRoles.stream().map(Role::getRole).collect(Collectors.toSet());
-        List<Role> newRoleList = linesMappings.stream().filter(m -> !filterRoleSet.contains(m.getRole()))
-                .map(m -> {
-                    Role role = new Role();
-                    role.setRole(m.getRole());
-                    role.setGender(m.getGender());
-                    role.setAgeGroup(m.getAgeGroup());
-                    return role;
-                })
-                .collect(Collectors.toMap(Role::getRole, Function.identity(), (v1, v2) -> v1))
-                .values().stream().toList();
-
-        List<Role> newRoles = new ArrayList<>();
-        newRoles.addAll(filterRoles);
-        newRoles.addAll(newRoleList);
-        newRoles.sort(Comparator.comparingLong((Role r) -> linesRoleCountMap.get(r.getRole())).reversed());
-        return newRoles;
+    @PostMapping("createSpeechConfig")
+    public Result<Object> createSpeechConfig(@RequestBody ChapterVO vo) throws IOException {
+        // 生成语音配置
+        List<RoleSpeechConfig> roleSpeechConfigs = chapterService.createRoleSpeechesConfig(vo.getProject(), vo.getChapterName());
+        SpeechConfig speechConfig = pathConfig.getSpeechConfig(vo.getProject(), vo.getChapterName());
+        if (Objects.isNull(speechConfig)) {
+            speechConfig = new SpeechConfig();
+        }
+        speechConfig.setRoleSpeechConfigs(roleSpeechConfigs);
+        pathConfig.writeSpeechConfig(vo.getProject(), vo.getChapterName(), speechConfig);
+        chapterService.setStep(vo.getProject(), vo.getChapterName(), 3);
+        return Result.success();
     }
 
     @PostMapping("startSpeechesCreate")
     public Result<Object> startSpeechesCreate(@RequestBody ChapterVO vo) throws IOException {
 
-        List<SpeechConfig> speechConfigs = chapterService.queryRoleSpeeches(vo.getProject(), vo.getChapterName());
-
-        CompletableFuture.runAsync(() -> {
-                    Path processFlag = pathConfig.getProcessFlagPath(vo.getProject(), vo.getChapterName());
-                    if (Files.notExists(processFlag)) {
+        SpeechConfig speechConfig = chapterService.querySpeechConfig(vo.getProject(), vo.getChapterName());
+        Path processFlag = pathConfig.getProcessFlagPath(vo.getProject(), vo.getChapterName());
+        if (Files.notExists(processFlag)) {
+            Files.createFile(processFlag);
+            CompletableFuture.runAsync(() -> {
                         try {
-                            Files.createFile(processFlag);
                             int a = 0;
-                            for (SpeechConfig speechConfig : speechConfigs) {
+                            for (RoleSpeechConfig roleSpeechConfig : speechConfig.getRoleSpeechConfigs()) {
                                 try {
-                                    createAudio(vo.getProject(), vo.getChapterName(), speechConfig);
+                                    audioCreateProcessMap.put(vo.getProject() + "-" + vo.getChapterName(), roleSpeechConfig.getLinesIndex());
+                                    createAudio(vo.getProject(), vo.getChapterName(), roleSpeechConfig);
                                 } catch (Exception e) {
                                     log.error(e.getMessage(), e);
                                     throw new RuntimeException(e);
                                 }
                                 a++;
                             }
-                            pathConfig.writeSpeechConfigs(vo.getProject(), vo.getChapterName(), speechConfigs);
+                            pathConfig.writeSpeechConfig(vo.getProject(), vo.getChapterName(), speechConfig);
+                            audioCreateProcessMap.remove(vo.getProject() + "-" + vo.getChapterName());
                             log.info("全部音频生成结束，文件数: [{}]", a);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
@@ -580,35 +531,37 @@ public class ChapterController {
                                 throw new RuntimeException(e);
                             }
                         }
-                    }
-                }, Executors.newFixedThreadPool(1))
-                .exceptionally(e -> {
-                    log.error(e.getMessage(), e);
-                    return null;
-                });
-        return Result.success(speechConfigs);
+                    }, Executors.newFixedThreadPool(1))
+                    .exceptionally(e -> {
+                        log.error(e.getMessage(), e);
+                        return null;
+                    });
+        }
+        speechConfig.setProcessFlag(Files.exists(processFlag));
+        speechConfig.setCreatingIndex(audioCreateProcessMap.get(vo.getProject() + "-" + vo.getChapterName()));
+        return Result.success(speechConfig);
     }
 
 
-    public SpeechConfig createAudio(String project, String chapter, SpeechConfig speechConfig) throws IOException {
+    public void createAudio(String project, String chapter, RoleSpeechConfig roleSpeechConfig) throws IOException {
 
-        String group = speechConfig.getGroup();
-        String model = speechConfig.getName();
+        String group = roleSpeechConfig.getGroup();
+        String model = roleSpeechConfig.getName();
 
-        String moodPath = group + File.separator + model + File.separator + speechConfig.getMood();
+        String moodPath = group + File.separator + model + File.separator + roleSpeechConfig.getMood();
         String defaultMoodPath = group + File.separator + model + File.separator + "默认";
         if (Files.exists(Path.of(pathConfig.getModelSpeechPath() + moodPath))) {
             Files.list(Path.of(pathConfig.getModelSpeechPath() + moodPath)).forEach(path -> {
                 if (path.getFileName().toString().endsWith(".wav")) {
-                    speechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + moodPath + "/" + path.getFileName().toString());
-                    speechConfig.setPromptText(path.getFileName().toString().replace(".wav", ""));
+                    roleSpeechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + moodPath + "/" + path.getFileName().toString());
+                    roleSpeechConfig.setPromptText(path.getFileName().toString().replace(".wav", ""));
                 }
             });
         } else {
             Files.list(Path.of(pathConfig.getModelSpeechPath() + defaultMoodPath)).forEach(path -> {
                 if (path.getFileName().toString().endsWith(".wav")) {
-                    speechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + defaultMoodPath + "/" + path.getFileName().toString());
-                    speechConfig.setPromptText(path.getFileName().toString().replace(".wav", ""));
+                    roleSpeechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + defaultMoodPath + "/" + path.getFileName().toString());
+                    roleSpeechConfig.setPromptText(path.getFileName().toString().replace(".wav", ""));
                 }
             });
         }
@@ -619,87 +572,124 @@ public class ChapterController {
         }
 
         long time = new Date().getTime();
-        String fileName = speechConfig.getLinesIndex() + "-" + time + ".wav";
+        String fileName = roleSpeechConfig.getLinesIndex() + "-" + time + ".wav";
         Path wavPath = Path.of(speechDir + fileName);
 
-        long audioDuration = 0;
-        if (List.of("。", "……").contains(speechConfig.getLines())) {
+        long audioDuration;
+        if (List.of("。", "……").contains(roleSpeechConfig.getLines())) {
             audioDuration = 1000;
-            AudioUtils.makeSilenceWav(wavPath.toString(), 1000L);
+            try {
+                deleteFileByPrefix(project, chapter, roleSpeechConfig.getLinesIndex());
+                AudioUtils.generateSilentAudio(wavPath.toString(), audioDuration);
+            } catch (Exception e) {
+                log.error(e.getMessage(), e);
+            }
         } else {
 
             HashMap<String, String> map = new HashMap<>();
-            map.put("refer_wav_path", speechConfig.getPromptAudioPath());
-            map.put("prompt_text", speechConfig.getPromptText());
+            map.put("refer_wav_path", roleSpeechConfig.getPromptAudioPath());
+            map.put("prompt_text", roleSpeechConfig.getPromptText());
             map.put("prompt_language", "zh");
-            map.put("text", speechConfig.getLines());
+            map.put("text", roleSpeechConfig.getLines());
             map.put("text_language", "zh");
             log.info("音频参数: [{}]", JSON.toJSONString(map));
-            log.info("生成音频, role: [{}], model: [{}], mood: [{}], content: [{}], linesIndex: [{}]", speechConfig.getRole(),
-                    speechConfig.getName(), speechConfig.getMood(), speechConfig.getLines(), speechConfig.getLinesIndex());
+            log.info("生成音频, role: [{}], model: [{}], mood: [{}], content: [{}], linesIndex: [{}]", roleSpeechConfig.getRole(),
+                    roleSpeechConfig.getName(), roleSpeechConfig.getMood(), roleSpeechConfig.getLines(), roleSpeechConfig.getLinesIndex());
 
             ResponseEntity<byte[]> response = restTemplate.postForEntity(pathConfig.getGptSoVitsUrl(), map, byte[].class);
 
 
             if (response.getStatusCode().is2xxSuccessful()) {
 
-                final ArrayList<Path> paths = new ArrayList<>();
-                Files.list(Path.of(speechDir)).forEach(path -> {
-                    if (path.getFileName().toString().startsWith(speechConfig.getLinesIndex())) {
-                        paths.add(path);
-                    }
-                });
-                if (!CollectionUtils.isEmpty(paths)) {
-                    for (Path path : paths) {
-                        Files.deleteIfExists(path);
-                    }
-                }
+
+                deleteFileByPrefix(project, chapter, roleSpeechConfig.getLinesIndex());
 
                 Files.write(wavPath, response.getBody());
-                log.info("音频生成成功, linesIndex: [{}]", speechConfig.getLinesIndex());
-
-                try {
-                    audioDuration = AudioUtils.getAudioTime(wavPath.toAbsolutePath().toString());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
+                log.info("音频生成成功, linesIndex: [{}]", roleSpeechConfig.getLinesIndex());
             }
         }
-        speechConfig.setDuration(audioDuration);
-        String filePath = pathConfig.getLinesAudioUrl(project, chapter, fileName);
-        speechConfig.setAudioUrl(filePath);
-        return speechConfig;
+    }
+
+    private void deleteFileByPrefix(String project, String chapter, String linesIndex) throws IOException {
+        String speechDir = pathConfig.getChapterPath(project, chapter) + "audio" + File.separator;
+
+        final ArrayList<Path> paths = new ArrayList<>();
+        Files.list(Path.of(speechDir)).forEach(path -> {
+            if (path.getFileName().toString().startsWith(linesIndex)) {
+                paths.add(path);
+            }
+        });
+        if (!CollectionUtils.isEmpty(paths)) {
+            for (Path path : paths) {
+                Files.deleteIfExists(path);
+            }
+        }
     }
 
 
-    @PostMapping("querySpeechConfigs")
-    public Result<RoleSpeechVO> querySpeechConfigs(@RequestBody ChapterVO vo) throws IOException {
-        RoleSpeechVO roleSpeechVO = new RoleSpeechVO();
+    @PostMapping("querySpeechConfig")
+    public Result<SpeechConfig> querySpeechConfig(@RequestBody ChapterVO vo) throws IOException {
         Path processFlag = pathConfig.getProcessFlagPath(vo.getProject(), vo.getChapterName());
-        List<SpeechConfig> speechConfigs = chapterService.queryRoleSpeeches(vo.getProject(), vo.getChapterName());
-        roleSpeechVO.setProcessFlag(Files.exists(processFlag));
-        roleSpeechVO.setSpeechConfigs(speechConfigs);
-        return Result.success(roleSpeechVO);
+        SpeechConfig speechConfig = chapterService.querySpeechConfig(vo.getProject(), vo.getChapterName());
+
+        if (Objects.nonNull(speechConfig)) {
+
+            speechConfig.setProcessFlag(Files.exists(processFlag));
+            speechConfig.setCreatingIndex(audioCreateProcessMap.get(vo.getProject() + "-" + vo.getChapterName()));
+
+            if (Objects.isNull(speechConfig.getAudioMergeInterval())) {
+                ProjectConfig projectConfig = pathConfig.getProjectConfig(vo.getProject());
+                AudioConfig audioConfig = projectConfig.getAudioConfig();
+                if (Objects.nonNull(audioConfig)) {
+                    speechConfig.setAudioMergeInterval(audioConfig.getAudioMergeInterval());
+                }
+            }
+        }
+
+        return Result.success(speechConfig);
     }
 
     @PostMapping("createSpeech")
     public Result<Object> createSpeech(@RequestBody SpeechCreate speechCreate) throws IOException {
-        SpeechConfig newConfig = speechCreate.getSpeechConfig();
+        RoleSpeechConfig newConfig = speechCreate.getRoleSpeechConfig();
         createAudio(speechCreate.getProject(), speechCreate.getChapterName(), newConfig);
-        List<SpeechConfig> speechConfigs = chapterService.queryRoleSpeeches(speechCreate.getProject(), speechCreate.getChapterName());
+        SpeechConfig speechConfig = chapterService.querySpeechConfig(speechCreate.getProject(), speechCreate.getChapterName());
 
-        for (SpeechConfig speechConfig : speechConfigs) {
-            if (StringUtils.equals(speechConfig.getLinesIndex(), newConfig.getLinesIndex())) {
-                BeanUtils.copyProperties(newConfig, speechConfig);
+        boolean updateFlag = false;
+        ChapterInfo chapterInfo = pathConfig.getChapterInfo(speechCreate.getProject(), speechCreate.getChapterName());
+        for (ChapterInfo.LineInfo lineInfo : chapterInfo.getLineInfos()) {
+            for (ChapterInfo.SentenceInfo sentenceInfo : lineInfo.getSentenceInfos()) {
+                String index = lineInfo.getIndex() + "-" + sentenceInfo.getIndex();
+                if (StringUtils.equals(index, newConfig.getLinesIndex())
+                        && !StringUtils.equals(sentenceInfo.getContent(), newConfig.getLines())) {
+                    sentenceInfo.setContent(newConfig.getLines());
+                    updateFlag = true;
+                }
             }
         }
-        pathConfig.writeSpeechConfigs(speechCreate.getProject(), speechCreate.getChapterName(), speechConfigs);
+
+        if (updateFlag) {
+            Path chapterInfoPath = Path.of(pathConfig.getChapterInfoPath(speechCreate.getProject(), speechCreate.getChapterName()));
+            Files.write(chapterInfoPath, JSON.toJSONBytes(chapterInfo));
+        }
+
+        for (RoleSpeechConfig roleSpeechConfig : speechConfig.getRoleSpeechConfigs()) {
+            if (StringUtils.equals(roleSpeechConfig.getLinesIndex(), newConfig.getLinesIndex())) {
+                BeanUtils.copyProperties(newConfig, roleSpeechConfig);
+            }
+        }
+        pathConfig.writeSpeechConfig(speechCreate.getProject(), speechCreate.getChapterName(), speechConfig);
         return Result.success();
     }
 
     @PostMapping("combineAudio")
-    public Result<Object> combineAudio(@RequestBody ChapterVO vo) throws IOException {
-        chapterService.combineAudio(vo.getProject(), vo.getChapterName());
+    public Result<Object> combineAudio(@RequestBody SpeechCombineVO vo) throws IOException {
+        if (Objects.nonNull(vo.getSpeechConfig()) && !CollectionUtils.isEmpty(vo.getSpeechConfig().getRoleSpeechConfigs())) {
+            // 保存语音速度 合并间隔
+            pathConfig.writeSpeechConfig(vo.getProject(), vo.getChapterName(), vo.getSpeechConfig());
+            chapterService.combineAudio(vo.getProject(), vo.getChapterName(), vo.getSpeechConfig());
+            chapterService.setStep(vo.getProject(), vo.getChapterName(), 4);
+        }
         return Result.success();
     }
 }

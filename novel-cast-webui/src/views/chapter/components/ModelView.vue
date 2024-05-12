@@ -1,10 +1,44 @@
 <template>
   <div class="container">
     <a-space size="large" direction="vertical" style="width: 100%">
-      <div v-if="!aiIgnore" style="text-align: center; margin-bottom: 20px">
+      <div style="text-align: right">
         <a-space size="large">
-          <span style="font-size: 16px">还没有AI分析结果</span>
+          <span v-if="!aiProcess && !aiIgnore" style="font-size: 16px"
+            >还没有AI分析结果</span
+          >
+          <div v-if="aiProcess">
+            <a-space size="large">
+              <a-popconfirm type="warning" @ok="handleAiReInference">
+                <a-button
+                  type="primary"
+                  size="large"
+                  :loading="loading"
+                  :disabled="loading && aiResultError"
+                  >重新生成</a-button
+                >
+                <template #content>
+                  <span>重新生成不会删除现有数据<br /></span>
+                  <span>后面保存结果才会更新数据</span>
+                </template>
+              </a-popconfirm>
+              <a-popconfirm type="warning" @ok="handleSaveAiReInferenceResult">
+                <a-button
+                  v-if="aiReInferenceFlag"
+                  type="primary"
+                  status="danger"
+                  size="large"
+                  :loading="loading"
+                  :disabled="loading && aiResultError"
+                  >保存此次生成结果</a-button
+                >
+                <template #content>
+                  <span>保存后会重置本页面的所有模型配置</span>
+                </template>
+              </a-popconfirm>
+            </a-space>
+          </div>
           <a-button
+            v-else
             type="primary"
             size="large"
             :loading="loading"
@@ -13,6 +47,7 @@
             >点击生成</a-button
           >
           <a-button
+            v-if="!aiProcess && !aiIgnore"
             size="large"
             :loading="loading"
             :disabled="loading"
@@ -146,10 +181,11 @@
                       type="primary"
                       status="danger"
                       :disabled="
-                        !!item.role.backup &&
-                        roleConfigs
-                          .map((item1) => item1.role.backup)
-                          .includes(item.role.backup)
+                        (!!item.role.backup &&
+                          roleConfigs
+                            .map((item1) => item1.role.backup)
+                            .includes(item.role.backup)) ||
+                        aiReInferenceFlag
                       "
                     >
                       删除角色
@@ -237,10 +273,10 @@
             status="success"
             size="large"
             :loading="loading"
-            @click="handleStartSpeechesCreate"
+            :disabled="!aiProcess || aiReInferenceFlag"
+            @click="handleUpdateModelConfig"
             >保存
           </a-button>
-          <a-button type="primary" size="large" @click="next">下一步</a-button>
           <a-button size="large" @click="close">关闭</a-button>
         </a-space>
       </div>
@@ -278,6 +314,7 @@
   import useLoading from '@/hooks/loading';
   import { FetchStream, IFetchStreamOptions } from '@/api/stream';
   import {
+    aiResultFormat,
     ignoreAiResult,
     LinesConfig,
     ModelConfig,
@@ -285,28 +322,19 @@
     queryModelConfig,
     Role,
     RoleModelConfig,
+    saveAiReInferenceResult,
     updateModelConfig,
   } from '@/api/chapter';
   import { querySpeechModels, SpeechModelGroup } from '@/api/model';
 
   const route = useRoute();
   const props = defineProps({
-    modelViewVisible: {
-      type: Boolean,
-      default: false,
-    },
-    speechConfigViewVisible: {
-      type: Boolean,
-      default: false,
-    },
     chapterName: {
       type: String,
     },
   });
 
   const emits = defineEmits([
-    'update:modelViewVisible',
-    'update:speechConfigViewVisible',
     'closeDrawerFetchData',
     'linesPointerForRole',
     'linesPointer',
@@ -368,7 +396,10 @@
 
   const linesConfigs = ref<LinesConfig[]>([]);
 
+  const aiProcess = ref<boolean>(false);
   const aiIgnore = ref<boolean>(false);
+  const hasSpeechConfig = ref<boolean>(false);
+  const aiReInferenceFlag = ref<boolean>(false);
 
   const showLightText = (linesIndex: string) => {
     emits('linesPointer', linesIndex);
@@ -420,11 +451,7 @@
     roleDeleteModalVisible.value = true;
   };
 
-  const getModelConfigData = async () => {
-    const { data } = await queryModelConfig({
-      project: route.query.project as string,
-      chapterName: props.chapterName as string,
-    });
+  const modelConfigDataParse = (data: ModelConfig) => {
     commonRoleConfigs.value = data.commonRoleConfigs.map(
       (item: RoleModelConfig) => {
         return {
@@ -453,7 +480,26 @@
         tmpModel,
       };
     });
+  };
+
+  const getModelConfigData = async () => {
+    const { data } = await queryModelConfig({
+      project: route.query.project as string,
+      chapterName: props.chapterName as string,
+    });
+    modelConfigDataParse(data);
+    aiProcess.value = data.aiProcess;
     aiIgnore.value = data.aiIgnore;
+    hasSpeechConfig.value = data.hasSpeechConfig;
+  };
+
+  const handleAiResultFormat = async () => {
+    const { data } = await aiResultFormat({
+      project: route.query.project as string,
+      chapterName: props.chapterName as string,
+      aiResultText: aiResultText.value,
+    });
+    modelConfigDataParse(data);
   };
 
   // 定义回调函数
@@ -466,6 +512,8 @@
   const handleAiInferenceDone = () => {
     if (aiResultText.value.endsWith('error')) {
       aiResultError.value = true;
+    } else if (aiReInferenceFlag.value) {
+      handleAiResultFormat();
     } else {
       setTimeout(() => {
         getModelConfigData();
@@ -486,13 +534,13 @@
     console.error('Request timed out');
   };
 
-  const handleAiInference = async () => {
+  const aiInference = async (url: string) => {
     try {
       setLoading(true);
       aiResultText.value = '';
       // 创建 FetchStream 实例并发送请求
       const fetchOptions: IFetchStreamOptions = {
-        url: '/api/chapter/aiInference',
+        url,
         requestInit: {
           method: 'POST',
           headers: {
@@ -517,41 +565,53 @@
     }
   };
 
+  const handleAiInference = async () => {
+    await aiInference('/api/chapter/aiInference');
+  };
+
+  const handleAiReInference = async () => {
+    aiReInferenceFlag.value = true;
+    await aiInference('/api/chapter/aiReInference');
+  };
+
+  const saveModelConfig = async () => {
+    return updateModelConfig({
+      project: route.query.project as string,
+      chapterName: props.chapterName as string,
+      modelConfig: {
+        commonRoleConfigs: commonRoleConfigs.value,
+        roleConfigs: roleConfigs.value,
+        linesConfigs: linesConfigs.value,
+      } as ModelConfig,
+    });
+  };
+
+  const handleUpdateModelConfig = async () => {
+    const { msg } = await saveModelConfig();
+    await getModelConfigData();
+    Message.success(msg);
+  };
+
   const handleIgnoreAiResult = async () => {
     await ignoreAiResult({
       project: route.query.project as string,
       chapterName: props.chapterName as string,
-    }).then(() => {
-      getModelConfigData();
     });
+    aiProcess.value = true;
+    aiIgnore.value = true;
   };
 
-  const handleStartSpeechesCreate = async () => {
-    try {
-      setLoading(true);
-
-      const { msg } = await updateModelConfig({
-        project: route.query.project as string,
-        chapterName: props.chapterName as string,
-        modelConfig: {
-          commonRoleConfigs: commonRoleConfigs.value,
-          roleConfigs: roleConfigs.value,
-          linesConfigs: linesConfigs.value,
-        } as ModelConfig,
-      });
-      Message.success(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const next = () => {
-    emits('update:modelViewVisible', false);
-    emits('update:speechConfigViewVisible', true);
+  const handleSaveAiReInferenceResult = async () => {
+    await saveAiReInferenceResult({
+      project: route.query.project as string,
+      chapterName: props.chapterName as string,
+      aiResultText: aiResultText.value,
+    });
+    await getModelConfigData();
+    aiReInferenceFlag.value = false;
   };
 
   const close = () => {
-    emits('update:modelViewVisible', false);
     emits('closeDrawerFetchData');
   };
 

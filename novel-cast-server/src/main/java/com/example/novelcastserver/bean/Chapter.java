@@ -13,6 +13,6 @@ public class Chapter {
     private List<LinesMapping> linesMappings;
     private Integer step;
     private String outAudioUrl;
-    private List<SpeechConfig> speechConfigs;
-    private AudioConfig audioConfig;
+    private List<RoleSpeechConfig> roleSpeechConfigs;
+    private Integer audioMergeInterval;
 }

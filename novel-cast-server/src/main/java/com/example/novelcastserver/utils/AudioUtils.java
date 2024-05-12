@@ -7,6 +7,8 @@ import org.bytedeco.javacv.Frame;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -125,6 +127,34 @@ public class AudioUtils {
         writeToFile(filePath, byteArray);
     }
 
+    public static void generateSilentAudio(String output, long durationInMilliseconds) throws Exception {
+        Path outputPath = Path.of(output);
+
+        Files.createDirectories(outputPath.getParent());
+        Files.deleteIfExists(outputPath);
+
+        // 将毫秒转换为秒
+        float durationInSeconds = durationInMilliseconds / 1000f;
+
+        // 构建 FFmpeg 命令
+        ProcessBuilder processBuilder = new ProcessBuilder(
+                "ffmpeg",
+                "-f", "lavfi",
+                "-i", String.format("anullsrc=duration=%.1fs", durationInSeconds),
+                "-c:a", "pcm_s16le",
+                "-ar", "32000",
+                "-ac", "1",
+                output
+        );
+
+        // 启动 FFmpeg 进程
+        Process process = processBuilder.start();
+
+        // 等待 FFmpeg 进程执行完成
+        process.waitFor();
+    }
+
+
     public static Long getAudioTime(String filePath) throws Exception {
         FFmpegFrameGrabber grabberOne = null;
         try {
@@ -140,46 +170,48 @@ public class AudioUtils {
 
     }
 
-    public static void combineWav(String output, List<String> inputs) throws IOException {
-
-        FFmpegFrameRecorder recorder = null;
-        FFmpegFrameGrabber grabber = null;
-
-        try {
-
-            grabber = new FFmpegFrameGrabber(inputs.getFirst());
-            grabber.start();
-            int audioChannels = grabber.getAudioChannels();
-            long audioSampleRate = grabber.getSampleRate();
-
-            // 创建录音器，设置输出文件和音频参数
-            recorder = new FFmpegFrameRecorder(output, audioChannels);
-            recorder.setSampleRate((int) audioSampleRate);
-            recorder.setAudioCodec(grabber.getAudioCodec());
-            recorder.start();
-
-            // 遍历所有WAV文件并逐个读取
-            for (String wavFile : inputs) {
-                grabber = new FFmpegFrameGrabber(wavFile);
-                grabber.start();
-
-                // 逐帧读取音频数据
-                Frame frame;
-                while ((frame = grabber.grabFrame()) != null) {
-                    // 将帧写入到合并的音频文件中
-                    recorder.record(frame);
+    public static void audioConcat(String output, List<String> inputs) throws IOException {
+        List<FFmpegFrameGrabber> grabbers = new ArrayList<>();
+        List<Integer> sampleRates = new ArrayList<>();
+        FFmpegFrameGrabber firstGrabber = null;
+        for (String srcFile : inputs) {
+            firstGrabber = new FFmpegFrameGrabber(srcFile);
+            firstGrabber.start();
+            grabbers.add(firstGrabber);
+            sampleRates.add(firstGrabber.getSampleRate());
+        }
+        FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(output, firstGrabber.getAudioChannels());
+        recorder.setSampleRate(sampleRates.getFirst());
+        recorder.start();
+        Frame frame;
+        for (FFmpegFrameGrabber grabber : grabbers) {
+            while ((frame = grabber.grabFrame()) != null) {
+                if (frame.samples == null) {
+                    break;
                 }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            // 停止录音器和抓取器
-            if (recorder != null) {
-                recorder.stop();
-            }
-            if (grabber != null) {
-                grabber.stop();
+                recorder.recordSamples(frame.samples);
             }
         }
+        for (FFmpegFrameGrabber grabber : grabbers) {
+            grabber.stop();
+        }
+        recorder.stop();
+    }
+
+    public static void audioSpeedControl(String input, Float speed, String output) throws Exception {
+        Path outputPath = Path.of(output);
+
+        Files.createDirectories(outputPath.getParent());
+        Files.deleteIfExists(outputPath);
+
+        ProcessBuilder processBuilder = new ProcessBuilder(
+                "ffmpeg",
+                "-i", input,
+                "-filter:a", String.format("\"atempo=%.1f\"", speed),
+                "-vn",
+                output
+        );
+        Process process = processBuilder.start();
+        process.waitFor();
     }
 }

@@ -2,16 +2,12 @@ package com.example.novelcastserver.bean;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class SpeechConfig {
-    private String linesIndex;
-    private String role;
-    private String lines;
-    private String group;
-    private String name;
-    private String mood;
-    private String promptAudioPath;
-    private String promptText;
-    private String audioUrl;
-    private Long duration;
+    private Boolean processFlag;
+    private List<RoleSpeechConfig> roleSpeechConfigs;
+    private Integer audioMergeInterval;
+    private String creatingIndex;
 }

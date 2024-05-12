@@ -6,5 +6,5 @@ import lombok.Setter;
 @Getter
 @Setter
 public class SpeechCreate extends ChapterVO {
-    private SpeechConfig speechConfig;
+    private RoleSpeechConfig roleSpeechConfig;
 }

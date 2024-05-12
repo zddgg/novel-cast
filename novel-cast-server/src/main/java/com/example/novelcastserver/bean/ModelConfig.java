@@ -10,7 +10,9 @@ public class ModelConfig {
     private List<RoleModelConfig> commonRoleConfigs;
     private List<RoleModelConfig> roleConfigs;
     private List<LinesConfig> linesConfigs;
+    private Boolean aiProcess;
     private Boolean aiIgnore;
+    private Boolean hasSpeechConfig;
 
     @Data
     public static class RoleModelConfig {

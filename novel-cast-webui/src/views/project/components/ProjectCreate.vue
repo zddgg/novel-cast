@@ -16,8 +16,12 @@
         />
       </a-form-item>
       <a-form-item>
-        <a-button type="primary" html-type="submit" :loading="loading"
-          >创建项目，开始处理</a-button
+        <a-button
+          size="large"
+          type="primary"
+          html-type="submit"
+          :loading="loading"
+          >创建项目</a-button
         >
       </a-form-item>
     </a-form>

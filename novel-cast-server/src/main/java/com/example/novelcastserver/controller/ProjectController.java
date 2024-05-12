@@ -4,13 +4,19 @@ import com.alibaba.fastjson2.JSON;
 import com.example.novelcastserver.bean.*;
 import com.example.novelcastserver.config.PathConfig;
 import com.example.novelcastserver.utils.ChapterExtractor;
+import com.example.novelcastserver.utils.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @CrossOrigin
 @RestController
@@ -34,7 +40,12 @@ public class ProjectController {
             String projectDir = path.getFileName().toString();
             project.setProjectName(projectDir);
             try {
-                project.setChapterNum((int) Files.list(Path.of(pathConfig.getChapterPath(projectDir))).count());
+                Path chapterDirPath = Path.of(pathConfig.getChapterPath(projectDir));
+                int chapterNum = 0;
+                if (Files.exists(chapterDirPath)) {
+                    chapterNum = (int) Files.list(chapterDirPath).count();
+                }
+                project.setChapterNum(chapterNum);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -63,32 +74,6 @@ public class ProjectController {
             Files.createDirectory(Path.of(projectPath));
         }
 
-        List<ChapterParse> chapterParses = ChapterExtractor.extractor(backupFilePath);
-        for (int i = 0; i < chapterParses.size(); i++) {
-            ChapterParse chapterParse = chapterParses.get(i);
-            ChapterInfo chapterInfo = new ChapterInfo();
-            chapterInfo.setIndex(i);
-            chapterInfo.setTitle(chapterParse.getTitle());
-            chapterInfo.setPrologue(chapterParse.getPrologue());
-            chapterInfo.setLineInfos(ChapterExtractor.parseChapterInfo(chapterParse.getContent()));
-
-            String chapterName = chapterInfo.getIndex() + "-" + chapterInfo.getTitle();
-            Path chapterPath = Path.of(pathConfig.getChapterPath(project, chapterName));
-            if (Files.notExists(chapterPath)) {
-                Files.createDirectories(chapterPath);
-            }
-
-            Path originTextPath = Path.of(pathConfig.getOriginTextPath(project, chapterName));
-            Files.createFile(originTextPath);
-            Files.writeString(originTextPath, chapterParse.getContent());
-
-            Path chapterInfoPath = Path.of(pathConfig.getChapterPath(project, chapterName) + "chapterInfo.json");
-            Files.writeString(chapterInfoPath, JSON.toJSONString(chapterInfo));
-
-            Path chapterInfoBkPath = Path.of(pathConfig.getChapterPath(project, chapterName) + "chapterInfo.json.bk");
-            Files.writeString(chapterInfoBkPath, JSON.toJSONString(chapterInfo));
-
-        }
         return Result.success();
     }
 
@@ -100,23 +85,105 @@ public class ProjectController {
         if (Files.exists(path)) {
             projectConfig = JSON.parseObject(Files.readString(Path.of(projectConfigPath + "projectConfig.json")), ProjectConfig.class);
         }
+        Path chapterDirPath = Path.of(pathConfig.getChapterPath(chapterVO.getProject()));
+        int chapterNum = 0;
+        if (Files.exists(chapterDirPath)) {
+            chapterNum = (int) Files.list(chapterDirPath).count();
+        }
+        projectConfig.setChapterNum(chapterNum);
         return Result.success(projectConfig);
     }
 
     @PostMapping("createProjectConfig")
-    public Result<Object> createProjectConfig(@RequestBody ProjectConfig configs) throws IOException {
-        String projectConfigPath = pathConfig.getProjectConfigPath(configs.getProject());
+    public Result<Object> createProjectConfig(@RequestBody ProjectConfig config) throws IOException {
+        String projectConfigPath = pathConfig.getProjectConfigPath(config.getProject());
         Files.createDirectories(Path.of(projectConfigPath));
-        configs.setProject(null);
-        Files.write(Path.of(projectConfigPath + "projectConfig.json"), JSON.toJSONBytes(configs));
+        Files.write(Path.of(projectConfigPath + "projectConfig.json"), JSON.toJSONBytes(config));
+
+        splitChapters(config.getProject(), config.getTextConfig().getChapterTitlePattern(), true);
+
         return Result.success();
     }
-
 
     @PostMapping("preCheckProjectConfig")
     public Result<Boolean> preCheckProjectConfig(@RequestBody ChapterVO chapterVO) throws IOException {
         String projectConfigPath = pathConfig.getProjectConfigPath(chapterVO.getProject());
         Path path = Path.of(projectConfigPath + "projectConfig.json");
         return Result.success(Files.exists(path));
+    }
+
+    @PostMapping("modifiersTest")
+    public Result<Object> modifiersTest(@RequestBody ModifiersTestVO vo) throws IOException {
+        List<String> strings = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(vo.getLinesModifiers()) && StringUtils.isNotBlank(vo.getTestText())) {
+            Pattern pattern = ChapterExtractor.buildModifiersPatternStr(vo.getLinesModifiers());
+            Matcher matcher = pattern.matcher(vo.getTestText());
+            while (matcher.find()) {
+                strings.add(matcher.group());
+            }
+        }
+        return Result.success(strings);
+    }
+
+    @PostMapping("splitTmpChapters")
+    public Result<Object> splitTmpChapters(@RequestBody SplitChapterVO vo) throws IOException {
+        String project = vo.getProject();
+
+        List<String> strings = splitChapters(project, vo.getChapterTitlePattern(), false);
+
+        return Result.success(strings);
+    }
+
+    private List<String> splitChapters(String project, String chapterTitlePattern, boolean save) throws IOException {
+        String backupFilePath = pathConfig.getProjectConfigPath(project) + "原文.txt";
+
+        List<String> chapterTitles = new ArrayList<>();
+
+        if (Files.exists(Path.of(backupFilePath))) {
+
+            Path chapterDirPath = Path.of(pathConfig.getChapterPath(project));
+            FileUtils.deleteDirectoryAll(chapterDirPath);
+            Files.createDirectories(chapterDirPath);
+
+            List<ChapterParse> chapterParses = ChapterExtractor.extractor(backupFilePath, chapterTitlePattern);
+
+            for (int i = 0; i < chapterParses.size(); i++) {
+                ChapterParse chapterParse = chapterParses.get(i);
+
+                if (save) {
+                    ChapterInfo chapterInfo = new ChapterInfo();
+                    chapterInfo.setIndex(i);
+                    chapterInfo.setTitle(chapterParse.getTitle());
+                    chapterInfo.setPrologue(chapterParse.getPrologue());
+
+                    String chapterName = chapterInfo.getIndex() + "-" + chapterInfo.getTitle();
+                    Path chapterPath = Path.of(pathConfig.getChapterPath(project, chapterName));
+                    if (Files.notExists(chapterPath)) {
+                        Files.createDirectories(chapterPath);
+                    }
+
+                    Path originTextPath = Path.of(pathConfig.getOriginTextPath(project, chapterName));
+                    Files.writeString(originTextPath, chapterParse.getContent());
+
+                    Path chapterInfoPath = Path.of(pathConfig.getChapterPath(project, chapterName) + "chapterInfo.json");
+                    Files.writeString(chapterInfoPath, JSON.toJSONString(chapterInfo));
+
+                    Path chapterInfoBkPath = Path.of(pathConfig.getChapterPath(project, chapterName) + "chapterInfo.json.bk");
+                    Files.writeString(chapterInfoBkPath, JSON.toJSONString(chapterInfo));
+                }
+                chapterTitles.add(chapterParse.getTitle());
+            }
+        }
+
+        return chapterTitles;
+    }
+
+    @PostMapping("deleteProject")
+    public Result<Object> deleteProject(@RequestBody ChapterVO chapterVO) throws IOException {
+        Path projectPath = Path.of(pathConfig.getProjectPath(chapterVO.getProject()));
+        if (Files.exists(projectPath) && Files.isDirectory(projectPath)) {
+            FileUtils.deleteDirectoryAll(projectPath);
+        }
+        return Result.success();
     }
 }
