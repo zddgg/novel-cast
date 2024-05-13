@@ -3,11 +3,8 @@ package com.example.novelcastserver.service;
 import com.alibaba.fastjson2.JSON;
 import com.example.novelcastserver.bean.*;
 import com.example.novelcastserver.config.PathConfig;
+import com.example.novelcastserver.ai.AiService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
@@ -20,20 +17,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Service
 public class AiInferenceService {
 
+    private final AiService aiService;
     private final PathConfig pathConfig;
-    private final OpenAiChatClient chatClient;
     private final ChapterService chapterService;
 
-    public AiInferenceService(PathConfig pathConfig, OpenAiChatClient chatClient, ChapterService chapterService) {
+    public AiInferenceService(AiService aiService, PathConfig pathConfig, ChapterService chapterService) {
+        this.aiService = aiService;
         this.pathConfig = pathConfig;
-        this.chatClient = chatClient;
         this.chapterService = chapterService;
     }
 
@@ -85,17 +83,8 @@ public class AiInferenceService {
                 \{content}
                 """;
 
-        SystemMessage systemMessage = new SystemMessage("你是一个小说内容台词分析员，你会精确的找到台词在原文中的位置并分析属于哪个角色，以及角色在说这句台词时的上下文环境及情绪等。");
-        UserMessage userMessage = new UserMessage(userQuery);
-        log.info("systemMessage: {}", systemMessage.getContent());
-        log.info("userMessage: {}", userMessage.getContent());
-        return chatClient.stream(new Prompt(List.of(systemMessage, userMessage)))
-                .mapNotNull(chatResponse -> chatResponse.getResult().getOutput().getContent());
-
-
-//        ChatResponse chatResponse = chatClient.call(new Prompt(List.of(systemMessage, userMessage)));
-//        System.out.println(JSON.toJSONString(chatResponse));
-//        return Flux.just(chatResponse.getResult().getOutput().getContent());
+        String systemMessage = "你是一个小说内容台词分析员，你会精确的找到台词在原文中的位置并分析属于哪个角色，以及角色在说这句台词时的上下文环境及情绪等。";
+        return aiService.stream(systemMessage, userQuery);
     }
 
     public AiResult aiResultFormat(AiResultFormatVO vo) throws IOException {
@@ -183,12 +172,12 @@ public class AiInferenceService {
     }
 
     static String parseStep = """
-            1. 分析下面原文中有哪些角色，他们的性别和年龄段，角色中有观众、群众之类的角色时统一使用'观众'，性别和年龄段取值范围如下：
+            1. 分析下面原文中有哪些角色，角色中有观众、群众之类的角色时统一使用观众这个角色，他们的性别和年龄段只能在下面范围中选择一个：
             性别：男、女、未知。
             年龄段：孩童、青少年、青年、中年、老年、未知。
 
-            2. 请分析下面台词部分的内容是属于原文部分中哪个角色的，然后结合上下文分析当时的情绪，取值范围如下：
-            情绪：快乐、悲伤、愤怒、焦虑、紧张、平静、落寞、赞赏、温柔、嘲讽、失望、轻蔑、羡慕、惊讶、兴奋、感慨、自卑、尴尬、震惊、敬畏、严肃、自卑、未知。
+            2. 请分析下面台词部分的内容是属于原文部分中哪个角色的，然后结合上下文分析当时的情绪，情绪只能在下面范围中选择一个：
+            情绪：中立、开心、吃惊、难过、厌恶、开心、恐惧。
 
             3. 严格按照台词文本中的顺序在原文文本中查找。每行台词都做一次处理，不能合并台词。
             4. 返回结果是JSON字符串，不要加代码块提示

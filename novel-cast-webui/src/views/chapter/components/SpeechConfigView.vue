@@ -243,7 +243,7 @@
       slotName: 'mood',
     },
     {
-      title: '速度控制',
+      title: '参数控制',
       dataIndex: 'speedControl',
       slotName: 'speedControl',
       width: 100,
@@ -262,12 +262,28 @@
 
   const textLanguageOptions = [
     {
-      label: 'zh',
+      label: '中文',
+      value: 'all_zh',
+    },
+    {
+      label: '英文',
+      value: 'en',
+    },
+    {
+      label: '日文',
+      value: 'all_ja',
+    },
+    {
+      label: '中英混合',
       value: 'zh',
     },
     {
-      label: 'en',
-      value: 'en',
+      label: '日英混合',
+      value: 'ja',
+    },
+    {
+      label: '多语种混合',
+      value: 'auto',
     },
   ];
   const speedControlOptions = [

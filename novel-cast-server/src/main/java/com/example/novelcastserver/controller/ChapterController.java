@@ -13,6 +13,7 @@ import com.example.novelcastserver.utils.ChapterExtractor;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.ai.chat.ChatResponse;
 import org.springframework.beans.BeanUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
