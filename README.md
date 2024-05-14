@@ -8,6 +8,10 @@
 1. kimi api key
 2. GPT-SoVITS api
 
+## 分支说明
+主分支以及gsv-base分支的gpt-sovits接口是api.py
+gsv-fast-inference的gpt-sovits接口是它的快速推理分支api_v2.py
+
 ## 运行程序
 ### 编译后的程序运行
 1. 下载压缩包 [度盘](https://pan.baidu.com/s/156fl5D0l7Z5Utq0f9YfDvg )  `wenl` 。
@@ -15,8 +19,6 @@
 3. 运行 `启动.bat`
 4. 浏览器打开 `127.0.0.1:8080`
 
-
-### 源码运行
 1. 技术栈 
 jdk21, springboot3, vue3, ffmpeg
 2. 项目结构
