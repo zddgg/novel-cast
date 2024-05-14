@@ -9,8 +9,8 @@
 2. GPT-SoVITS api
 
 ## 分支说明
-主分支以及gsv-base分支的gpt-sovits接口是api.py
-gsv-fast-inference的gpt-sovits接口是它的快速推理分支api_v2.py
+### 主分支以及gsv-base分支的gpt-sovits接口是api.py
+### gsv-fast-inference的gpt-sovits接口是它的快速推理分支api_v2.py
 
 ## 运行程序
 ### 编译后的程序运行
