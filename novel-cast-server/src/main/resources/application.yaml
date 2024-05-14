@@ -26,7 +26,7 @@ spring:
 
 novel-cast:
   file-system-path:
-  gpt-so-vits-url: 'http://127.0.0.1:9880/tts'
+  gpt-so-vits-url: 'http://127.0.0.1:9880/'
   remote-speech-path:
 
 ai:

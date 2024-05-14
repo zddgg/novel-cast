@@ -588,14 +588,11 @@ public class ChapterController {
         } else {
 
             HashMap<String, String> map = new HashMap<>();
-
-            map.put("ref_audio_path", roleSpeechConfig.getPromptAudioPath());
+            map.put("refer_wav_path", roleSpeechConfig.getPromptAudioPath());
             map.put("prompt_text", roleSpeechConfig.getPromptText());
-            map.put("prompt_lang", "zh");
+            map.put("prompt_language", "zh");
             map.put("text", roleSpeechConfig.getLines());
-            map.put("text_lang", roleSpeechConfig.getTextLanguage());
-            map.put("text_split_method", "cut0");
-
+            map.put("text_language", roleSpeechConfig.getTextLanguage());
             log.info("音频参数: [{}]", JSON.toJSONString(map));
             log.info("生成音频, role: [{}], model: [{}], mood: [{}], content: [{}], linesIndex: [{}]", roleSpeechConfig.getRole(),
                     roleSpeechConfig.getName(), roleSpeechConfig.getMood(), roleSpeechConfig.getLines(), roleSpeechConfig.getLinesIndex());
