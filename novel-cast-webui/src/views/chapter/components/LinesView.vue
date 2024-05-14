@@ -1,59 +1,21 @@
 <template>
   <div class="container">
     <a-row>
-      <a-col :span="14">
+      <a-col :span="10">
         <a-form-item
           label="角色台词修饰符"
-          help="右边选不到可以手动填，紧密相连的一组符号，可配置多种，多层次只匹配最外层"
+          help="右边选不到可以在下拉框中手动填，紧密相连的一组符号，可配置多种，多层次只匹配最外层"
         >
-          <a-space wrap>
-            <a-tag
-              v-for="(tag, index) of linesModifiers"
-              :key="index + 'a'"
-              :closable="true"
-              :size="'large'"
-              @close="handleRemove(index)"
-            >
-              {{ tag }}
-            </a-tag>
-
-            <a-input
-              v-if="showInput"
-              ref="inputRef"
-              v-model.trim="inputVal"
-              :style="{ width: '90px' }"
-              size="mini"
-              @keyup.enter="handleAdd"
-              @blur="handleAdd"
-            />
-            <a-tag
-              v-else
-              :style="{
-                width: '90px',
-                backgroundColor: 'var(--color-fill-2)',
-                border: '1px dashed var(--color-fill-3)',
-                cursor: 'pointer',
-              }"
-              @click="handleEdit"
-            >
-              <template #icon>
-                <icon-plus />
-              </template>
-              Add Tag
-            </a-tag>
-          </a-space>
+          <a-input v-model="computedLinesModifiers" readonly />
         </a-form-item>
       </a-col>
-      <a-col :span="6">
+      <a-col :span="10">
         <a-form-item>
           <a-select
+            v-model="linesModifiers"
+            multiple
+            allow-create
             :options="modifiersList"
-            :default-value="modifiersList[0].value"
-            @change="value => {
-              if (!linesModifiers.includes(value as string)) {
-                                linesModifiers.push(value as string);
-                              }
-            }"
           />
         </a-form-item>
       </a-col>
@@ -125,7 +87,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, nextTick, ref, watch } from 'vue';
+  import { computed, ref, watch } from 'vue';
   import {
     ChapterParams,
     Lines,
@@ -234,33 +196,9 @@
 
   const linesModifiers = ref<string[]>([modifiersList[0].value]);
 
-  const inputRef = ref<HTMLInputElement | null>(null);
-  const showInput = ref(false);
-  const inputVal = ref('');
-
-  const handleEdit = () => {
-    showInput.value = true;
-
-    nextTick(() => {
-      if (inputRef.value) {
-        inputRef.value.focus();
-      }
-    });
-  };
-
-  const handleAdd = () => {
-    if (inputVal.value) {
-      linesModifiers.value.push(inputVal.value);
-      inputVal.value = '';
-    }
-    showInput.value = false;
-  };
-
-  const handleRemove = (key) => {
-    linesModifiers.value = linesModifiers.value.filter(
-      (index) => key !== index
-    );
-  };
+  const computedLinesModifiers = computed(() => {
+    return linesModifiers.value.join(',');
+  });
 
   const linesList = ref<Lines[]>([]);
 
