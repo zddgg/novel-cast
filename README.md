@@ -14,7 +14,7 @@
 
 ## 运行程序
 ### 编译后的程序运行
-1. 下载压缩包 [度盘](https://pan.baidu.com/s/156fl5D0l7Z5Utq0f9YfDvg )  `wenl` 。
+1. 下载压缩包 网盘 (https://pan.quark.cn/s/93450e54d99c) 。
 2. 打开压缩包，修改 `application.yaml` 文件中的 `kimi api key` 和 `GPT-SoVITS api`
 3. 运行 `启动.bat`
 4. 浏览器打开 `127.0.0.1:8080`
