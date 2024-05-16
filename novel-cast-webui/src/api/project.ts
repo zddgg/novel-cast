@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Pagination } from '@/types/global';
 import { ModelItem } from '@/api/chapter';
+import { GsvModel } from '@/api/model';
 
 export interface Project {
   id: number;
@@ -23,29 +24,30 @@ export function createProject(params: FormData) {
 }
 
 export interface ProjectRoleConfig {
+  project?: string;
   role: string;
-  models: ModelItem[];
-  tmpModels: string[][];
+  gsvModel: GsvModel;
+  model: ModelItem;
+  tmpGsvModel?: string[];
+  tmpModel: string[];
   strategyType: string;
+  mood: string;
 }
 
 export interface ProjectModelConfig {
+  gsvModel: GsvModel;
   model: ModelItem;
   strategyType: string;
+  tmpGsvModel?: string[];
   tmpModel?: string[];
-}
-
-export interface ProjectModelsConfig {
-  models: ModelItem[];
-  strategyType: string;
-  tmpModels?: string[][];
+  mood: string;
 }
 
 export interface ProjectGlobalConfig {
   defaultModel: ProjectModelConfig;
-  titleModel: ProjectModelsConfig;
-  asideModel: ProjectModelsConfig;
-  viewersModel: ProjectModelsConfig;
+  titleModel: ProjectModelConfig;
+  asideModel: ProjectModelConfig;
+  viewersModel: ProjectModelConfig;
 }
 
 export interface ProjectAudioConfig {
@@ -95,4 +97,24 @@ export function splitTmpChapters(params: {
 
 export function deleteProject(params: { project: string }) {
   return axios.post('/api/project/deleteProject', params);
+}
+
+export interface LoadProjectRoleModel {
+  project: string;
+  roles: string[];
+}
+
+export function loadProjectRoleModel(params: LoadProjectRoleModel) {
+  return axios.post<ProjectRoleConfig[]>(
+    '/api/project/loadProjectRoleModel',
+    params
+  );
+}
+
+export function checkProjectRoleModel(params: ProjectRoleConfig) {
+  return axios.post<boolean>('/api/project/checkProjectRoleModel', params);
+}
+
+export function setProjectRoleModel(params: ProjectRoleConfig) {
+  return axios.post('/api/project/setProjectRoleModel', params);
 }

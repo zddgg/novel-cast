@@ -63,38 +63,65 @@ public class ChapterService {
                 roleSpeechConfig.setSpeedControl(1.0f);
                 roleSpeechConfig.setTextLanguage(textConfig.getTextLanguage());
 
+                GsvModel selectGsvModel = projectGlobalConfig.getDefaultModel().getGsvModel();
                 Model selectModel = projectGlobalConfig.getDefaultModel().getModel();
+                String selectMood = projectGlobalConfig.getDefaultModel().getMood();
 
                 String linesIndex = lineInfo.getIndex() + "-" + sentenceInfo.getIndex();
                 // 具体角色台词部分
                 if (linesConfigMap.containsKey(linesIndex)) {
                     ModelConfig.LinesConfig linesConfig = linesConfigMap.get(linesIndex);
                     LinesMapping linesMapping = linesConfig.getLinesMapping();
+                    GsvModel linesConfigGsvModel = linesConfig.getGsvModel();
                     Model linesConfigModel = linesConfig.getModel();
+                    String linesConfigMood = linesConfig.getMood();
 
                     String role = linesMapping.getRole();
                     roleSpeechConfig.setRole(role);
+                    roleSpeechConfig.setGender(linesMapping.getGender());
+                    roleSpeechConfig.setAgeGroup(linesMapping.getAgeGroup());
 
                     // 观众配置
                     if (StringUtils.equals("观众", role)) {
 
                         // 项目配置
-                        List<Model> models = projectGlobalConfig.getViewersModel().getModels();
-                        if (!CollectionUtils.isEmpty(models)) {
-                            selectModel = models.get(new Random().nextInt(models.size()));
+                        if (Objects.nonNull(projectGlobalConfig.getViewersModel().getGsvModel())) {
+                            selectGsvModel = projectGlobalConfig.getViewersModel().getGsvModel();
+                        }
+                        if (Objects.nonNull(projectGlobalConfig.getViewersModel().getModel())) {
+                            selectModel = projectGlobalConfig.getViewersModel().getModel();
+                        }
+                        if (Objects.nonNull(projectGlobalConfig.getViewersModel().getMood())) {
+                            selectMood = projectGlobalConfig.getViewersModel().getMood();
                         }
 
                         // 角色配置
                         ModelConfig.RoleModelConfig viewersRoleConfig = roleConfigMap.get("观众");
-                        if (Objects.nonNull(viewersRoleConfig) && !CollectionUtils.isEmpty(viewersRoleConfig.getModels())) {
-                            selectModel = viewersRoleConfig.getModels().get(new Random().nextInt(viewersRoleConfig.getModels().size()));
+                        if (Objects.nonNull(viewersRoleConfig)) {
+                            if (Objects.nonNull(viewersRoleConfig.getGsvModel())) {
+                                selectGsvModel = viewersRoleConfig.getGsvModel();
+                            }
+                            if (Objects.nonNull(viewersRoleConfig.getModel())) {
+                                selectModel = viewersRoleConfig.getModel();
+                            }
+                            if (Objects.nonNull(viewersRoleConfig.getMood())) {
+                                selectMood = viewersRoleConfig.getMood();
+                            }
                         }
 
                         // 台词配置
+                        if (Objects.nonNull(linesConfigGsvModel)
+                                && StringUtils.isNotBlank(linesConfigGsvModel.getGroup())
+                                && StringUtils.isNotBlank(linesConfigGsvModel.getName())) {
+                            selectGsvModel = linesConfigGsvModel;
+                        }
                         if (Objects.nonNull(linesConfigModel)
                                 && StringUtils.isNotBlank(linesConfigModel.getGroup())
                                 && StringUtils.isNotBlank(linesConfigModel.getName())) {
                             selectModel = linesConfigModel;
+                        }
+                        if (StringUtils.isNotBlank(linesConfigMood)) {
+                            selectMood = linesConfigMood;
                         }
 
                     } else {
@@ -102,23 +129,41 @@ public class ChapterService {
 
                         // 项目配置
                         ProjectConfig.ProjectRoleConfig projectRoleConfig = projectRoleConfigMap.get(role);
-                        if (Objects.nonNull(projectRoleConfig) && !CollectionUtils.isEmpty(projectRoleConfig.getModels())) {
-                            List<Model> models = projectRoleConfig.getModels();
-                            selectModel = models.get(new Random().nextInt(models.size()));
+                        if (Objects.nonNull(projectRoleConfig) && Objects.nonNull(projectRoleConfig.getGsvModel())) {
+                            selectGsvModel = projectRoleConfig.getGsvModel();
+                        }
+                        if (Objects.nonNull(projectRoleConfig) && Objects.nonNull(projectRoleConfig.getModel())) {
+                            selectModel = projectRoleConfig.getModel();
+                        }
+                        if (Objects.nonNull(projectRoleConfig) && Objects.nonNull(projectRoleConfig.getMood())) {
+                            selectMood = projectRoleConfig.getMood();
                         }
 
                         // 角色配置
                         ModelConfig.RoleModelConfig roleConfig = roleConfigMap.get(role);
-                        if (Objects.nonNull(roleConfig) && !CollectionUtils.isEmpty(roleConfig.getModels())) {
-                            List<Model> models = roleConfig.getModels();
-                            selectModel = models.get(new Random().nextInt(models.size()));
+                        if (Objects.nonNull(roleConfig) && Objects.nonNull(roleConfig.getGsvModel())) {
+                            selectGsvModel = roleConfig.getGsvModel();
+                        }
+                        if (Objects.nonNull(roleConfig) && Objects.nonNull(roleConfig.getModel())) {
+                            selectModel = roleConfig.getModel();
+                        }
+                        if (Objects.nonNull(roleConfig) && Objects.nonNull(roleConfig.getMood())) {
+                            selectMood = roleConfig.getMood();
                         }
 
                         // 台词配置
+                        if (Objects.nonNull(linesConfigGsvModel)
+                                && StringUtils.isNotBlank(linesConfigGsvModel.getGroup())
+                                && StringUtils.isNotBlank(linesConfigGsvModel.getName())) {
+                            selectGsvModel = linesConfigGsvModel;
+                        }
                         if (Objects.nonNull(linesConfigModel)
                                 && StringUtils.isNotBlank(linesConfigModel.getGroup())
                                 && StringUtils.isNotBlank(linesConfigModel.getName())) {
                             selectModel = linesConfigModel;
+                        }
+                        if (StringUtils.isNotBlank(linesConfigMood)) {
+                            selectMood = linesConfigMood;
                         }
                     }
                 } else if (linesIndex.startsWith("0-0")) {
@@ -126,34 +171,54 @@ public class ChapterService {
                     roleSpeechConfig.setRole("标题");
 
                     // 项目配置
-                    ProjectConfig.ProjectModelsConfig titleModel = projectGlobalConfig.getTitleModel();
-                    if (Objects.nonNull(titleModel) && !CollectionUtils.isEmpty(titleModel.getModels())) {
-                        List<Model> models = titleModel.getModels();
-                        selectModel = models.get(new Random().nextInt(models.size()));
+                    ProjectConfig.ProjectModelConfig titleModel = projectGlobalConfig.getTitleModel();
+                    if (Objects.nonNull(titleModel) && Objects.nonNull(titleModel.getGsvModel())) {
+                        selectGsvModel = titleModel.getGsvModel();
+                    }
+                    if (Objects.nonNull(titleModel) && Objects.nonNull(titleModel.getModel())) {
+                        selectModel = titleModel.getModel();
+                    }
+                    if (Objects.nonNull(titleModel) && Objects.nonNull(titleModel.getMood())) {
+                        selectMood = titleModel.getMood();
                     }
 
                     // 模型选择页配置
                     ModelConfig.RoleModelConfig asideConfig = commonRoleConfigMap.get("标题");
-                    if (Objects.nonNull(asideConfig) && !CollectionUtils.isEmpty(asideConfig.getModels())) {
-                        List<Model> models = asideConfig.getModels();
-                        selectModel = models.get(new Random().nextInt(models.size()));
+                    if (Objects.nonNull(asideConfig) && Objects.nonNull(asideConfig.getGsvModel())) {
+                        selectGsvModel = asideConfig.getGsvModel();
+                    }
+                    if (Objects.nonNull(asideConfig) && Objects.nonNull(asideConfig.getModel())) {
+                        selectModel = asideConfig.getModel();
+                    }
+                    if (Objects.nonNull(asideConfig) && Objects.nonNull(asideConfig.getMood())) {
+                        selectMood = asideConfig.getMood();
                     }
 
                 } else {
                     roleSpeechConfig.setRole("旁白");
 
                     // 项目配置
-                    ProjectConfig.ProjectModelsConfig asideModel = projectGlobalConfig.getAsideModel();
-                    if (Objects.nonNull(asideModel) && !CollectionUtils.isEmpty(asideModel.getModels())) {
-                        List<Model> models = asideModel.getModels();
-                        selectModel = models.get(new Random().nextInt(models.size()));
+                    ProjectConfig.ProjectModelConfig asideModel = projectGlobalConfig.getAsideModel();
+                    if (Objects.nonNull(asideModel) && Objects.nonNull(asideModel.getGsvModel())) {
+                        selectGsvModel = asideModel.getGsvModel();
+                    }
+                    if (Objects.nonNull(asideModel) && Objects.nonNull(asideModel.getModel())) {
+                        selectModel = asideModel.getModel();
+                    }
+                    if (Objects.nonNull(asideModel) && Objects.nonNull(asideModel.getMood())) {
+                        selectMood = asideModel.getMood();
                     }
 
                     // 模型选择页配置
                     ModelConfig.RoleModelConfig asideConfig = commonRoleConfigMap.get("旁白");
-                    if (Objects.nonNull(asideConfig) && !CollectionUtils.isEmpty(asideConfig.getModels())) {
-                        List<Model> models = asideConfig.getModels();
-                        selectModel = models.get(new Random().nextInt(models.size()));
+                    if (Objects.nonNull(asideConfig) && Objects.nonNull(asideConfig.getGsvModel())) {
+                        selectGsvModel = asideConfig.getGsvModel();
+                    }
+                    if (Objects.nonNull(asideConfig) && Objects.nonNull(asideConfig.getModel())) {
+                        selectModel = asideConfig.getModel();
+                    }
+                    if (Objects.nonNull(asideConfig) && Objects.nonNull(asideConfig.getMood())) {
+                        selectMood = asideConfig.getMood();
                     }
                 }
 
@@ -161,7 +226,9 @@ public class ChapterService {
                 roleSpeechConfig.setLines(sentenceInfo.getContent());
                 roleSpeechConfig.setGroup(selectModel.getGroup());
                 roleSpeechConfig.setName(selectModel.getName());
-                roleSpeechConfig.setMood("默认");
+                roleSpeechConfig.setMood(selectMood);
+                roleSpeechConfig.setGsvModelGroup(selectGsvModel.getGroup());
+                roleSpeechConfig.setGsvModelName(selectGsvModel.getName());
 
                 roleSpeechConfigs.add(roleSpeechConfig);
             });

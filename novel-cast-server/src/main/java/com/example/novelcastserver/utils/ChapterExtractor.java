@@ -47,7 +47,7 @@ public class ChapterExtractor {
                     }
 
                     chapterParse = new ChapterParse();
-                    chapterParse.setTitle(line.trim());
+                    chapterParse.setTitle(titleFormat(line.trim()));
                 }
 //                else {
 //                    if (chapterParse == null) {
@@ -76,13 +76,27 @@ public class ChapterExtractor {
 
         if (!preface.isEmpty()) {
             ChapterParse prefaceChapter = new ChapterParse();
-            prefaceChapter.setTitle(preface.toString().split("\\n")[0].trim()); // Setting the title from the first line
+            prefaceChapter.setTitle(titleFormat(preface.toString().split("\\n")[0].trim())); // Setting the title from the first line
             prefaceChapter.setContent(preface.toString());
             prefaceChapter.setPrologue(true);
             chapterPars.addFirst(prefaceChapter);
         }
 
         return chapterPars;
+    }
+
+    public static String titleFormat(String chapterTitle) {
+        return chapterTitle
+                .replace("\\", "")
+                .replace("/", "")
+                .replace(":", "：")
+                .replace("*", "")
+                .replace("?", "？")
+                .replace("\"", "")
+                .replace("<", "")
+                .replace(">", "")
+                .replace("|", "")
+                ;
     }
 
     public static List<ChapterParse> extractor(String filePath) throws IOException {

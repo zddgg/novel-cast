@@ -38,7 +38,7 @@
                 }}</a-descriptions-item>
               </a-descriptions>
               <div style="margin-top: 20px; text-align: right">
-                <a-space size="large">
+                <a-space wrap>
                   <a-button
                     type="primary"
                     @click="

@@ -251,7 +251,7 @@
 
 <script lang="ts" setup>
   import { Pagination } from '@/types/global';
-  import { computed, onMounted, reactive, ref } from 'vue';
+  import { computed, onMounted, reactive, ref, watch } from 'vue';
   import useLoading from '@/hooks/loading';
   import {
     ChapterInfo,
@@ -266,7 +266,7 @@
   import ModelView from './components/ModelView.vue';
 
   const route = useRoute();
-  const { setLoading } = useLoading(true);
+  const { loading, setLoading } = useLoading(true);
 
   const chapters = ref<Chapter[]>([]);
   const chapterInfo = ref<ChapterInfo>({} as ChapterInfo);
@@ -305,51 +305,44 @@
       pageSize: 100,
     } as ChapterParams
   ) => {
-    setLoading(true);
-    try {
-      params.project = route.query.project as string;
-      const { data } = await queryChapterPageList(params);
-      chapters.value = data.records;
-      pagination.current = params.current;
-      pagination.total = data.total;
+    params.project = route.query.project as string;
+    const { data } = await queryChapterPageList(params);
+    chapters.value = data.records;
+    pagination.current = params.current;
+    pagination.total = data.total;
 
-      durationMap.value = new Map<string, LinesDuration[]>();
-      chapters.value.forEach((item) => {
-        const list = item.roleSpeechConfigs;
-        if (list && list.length > 0) {
-          list.sort((a, b) => {
-            // 将字符串分割成数组
-            const [firstA, secondA] = a.linesIndex.split('-');
-            const [firstB, secondB] = b.linesIndex.split('-');
+    durationMap.value = new Map<string, LinesDuration[]>();
+    chapters.value.forEach((item) => {
+      const list = item.roleSpeechConfigs;
+      if (list && list.length > 0) {
+        list.sort((a, b) => {
+          // 将字符串分割成数组
+          const [firstA, secondA] = a.linesIndex.split('-');
+          const [firstB, secondB] = b.linesIndex.split('-');
 
-            // 比较第一个数字
-            if (firstA !== firstB) {
-              return Number(firstA) - Number(firstB);
-            }
+          // 比较第一个数字
+          if (firstA !== firstB) {
+            return Number(firstA) - Number(firstB);
+          }
 
-            // 如果第一个数字相同，比较第二个数字
-            return Number(secondA) - Number(secondB);
-          });
+          // 如果第一个数字相同，比较第二个数字
+          return Number(secondA) - Number(secondB);
+        });
 
-          const linesDurations: LinesDuration[] = [];
-          let startTime = 0;
-          list.forEach((item1) => {
-            const linesDuration: LinesDuration = {
-              start: startTime,
-              end: startTime + item1.duration + (item.audioMergeInterval || 0),
-              index: item1.linesIndex,
-            };
-            linesDurations.push(linesDuration);
-            startTime += item1.duration + (item.audioMergeInterval || 0);
-          });
-          durationMap.value?.set(item.chapterName, linesDurations);
-        }
-      });
-    } catch (err) {
-      // err
-    } finally {
-      setLoading(false);
-    }
+        const linesDurations: LinesDuration[] = [];
+        let startTime = 0;
+        list.forEach((item1) => {
+          const linesDuration: LinesDuration = {
+            start: startTime,
+            end: startTime + item1.duration + (item.audioMergeInterval || 0),
+            index: item1.linesIndex,
+          };
+          linesDurations.push(linesDuration);
+          startTime += item1.duration + (item.audioMergeInterval || 0);
+        });
+        durationMap.value?.set(item.chapterName, linesDurations);
+      }
+    });
   };
 
   const onPageChange = (current: number) => {
@@ -427,19 +420,14 @@
     scrollTo(index);
   };
 
-  const refreshChapterText = async (chapterName: string) => {
-    setLoading(true);
-    try {
-      const { data } = await queryDetail({
-        project: route.query.project,
-        chapterName,
-      } as ChapterParams);
-      chapterInfo.value = data;
+  const refreshChapterText = async (chapterName: string, notToTop: boolean) => {
+    const { data } = await queryDetail({
+      project: route.query.project,
+      chapterName,
+    } as ChapterParams);
+    chapterInfo.value = data;
+    if (!notToTop) {
       scrollToTop('text-review-area');
-    } catch (err) {
-      // you can report use errorHandler or other
-    } finally {
-      setLoading(false);
     }
   };
 

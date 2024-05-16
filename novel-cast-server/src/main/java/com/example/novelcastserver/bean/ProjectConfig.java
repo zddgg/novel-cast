@@ -15,30 +15,28 @@ public class ProjectConfig {
     private Integer chapterNum;
 
     @Data
-    public static class ProjectRoleConfig {
+    public static class ProjectRoleConfig extends ChapterVO {
         private String role;
-        private List<Model> models;
+        private GsvModel gsvModel;
+        private Model model;
         private String strategyType;
+        private String mood;
     }
 
     @Data
     public static class ProjectModelConfig {
+        private GsvModel gsvModel;
         private Model model;
         private String strategyType;
-    }
-
-    @Data
-    public static class ProjectModelsConfig {
-        private List<Model> models;
-        private String strategyType;
+        private String mood;
     }
 
     @Data
     public static class ProjectGlobalConfig {
         private ProjectModelConfig defaultModel;
-        private ProjectModelsConfig titleModel;
-        private ProjectModelsConfig asideModel;
-        private ProjectModelsConfig viewersModel;
+        private ProjectModelConfig titleModel;
+        private ProjectModelConfig asideModel;
+        private ProjectModelConfig viewersModel;
     }
 
     @Data

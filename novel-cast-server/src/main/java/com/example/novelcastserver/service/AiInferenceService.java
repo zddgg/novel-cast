@@ -126,7 +126,6 @@ public class AiInferenceService {
         return this.roleAndLinesInference(chapterInfo)
                 .publishOn(Schedulers.boundedElastic())
                 .doOnNext(s -> {
-                    System.out.println(s);
                     if (saveResult) {
                         try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile, true))) {
                             writer.write(s);
@@ -177,7 +176,7 @@ public class AiInferenceService {
             年龄段：孩童、青少年、青年、中年、老年、未知。
 
             2. 请分析下面台词部分的内容是属于原文部分中哪个角色的，然后结合上下文分析当时的情绪，情绪只能在下面范围中选择一个：
-            情绪：中立、开心、吃惊、难过、厌恶、开心、恐惧。
+            情绪：中立、开心、吃惊、难过、厌恶、生气、恐惧。
 
             3. 严格按照台词文本中的顺序在原文文本中查找。每行台词都做一次处理，不能合并台词。
             4. 返回结果是JSON字符串，不要加代码块提示

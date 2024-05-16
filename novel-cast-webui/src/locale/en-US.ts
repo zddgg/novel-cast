@@ -18,7 +18,8 @@ export default {
   'navbar.action.locale': 'Switch to English',
 
   'menu.novelCast': 'NovelCast',
-  'menu.novelCast.model': 'Model Manage',
+  'menu.novelCast.gsvModel': 'Model Manage',
+  'menu.novelCast.gsvAudio': 'Audio Manage',
   'menu.novelCast.project': 'Project Manage',
 
   ...localeSettings,

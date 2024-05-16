@@ -10,10 +10,14 @@ import com.example.novelcastserver.service.ChapterService;
 import com.example.novelcastserver.service.ModelConfigService;
 import com.example.novelcastserver.utils.AudioUtils;
 import com.example.novelcastserver.utils.ChapterExtractor;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.ChatResponse;
 import org.springframework.beans.BeanUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
@@ -29,8 +33,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -201,7 +207,7 @@ public class ChapterController {
     @PostMapping(value = "aiResultFormat")
     public Result<Object> aiResultFormat(@RequestBody AiResultFormatVO vo) throws IOException {
         AiResult aiResult = aiInferenceService.aiResultFormat(vo);
-        ModelConfig modelConfig = modelConfigService.buildModelConfig(aiResult.getRoles(), aiResult.getLinesMappings());
+        ModelConfig modelConfig = modelConfigService.buildModelConfig(vo.getProject(), aiResult.getRoles(), aiResult.getLinesMappings());
         return Result.success(modelConfig);
     }
 
@@ -428,7 +434,7 @@ public class ChapterController {
 
             List<Role> combineRoles = ChapterService.combineRoles(roles, linesMappings);
 
-            modelConfig = modelConfigService.buildModelConfig(combineRoles, linesMappings);
+            modelConfig = modelConfigService.buildModelConfig(vo.getProject(), combineRoles, linesMappings);
         } else {
             modelConfig = JSON.parseObject(Files.readString(modelConfigPath), ModelConfig.class);
         }
@@ -509,22 +515,19 @@ public class ChapterController {
             Files.createFile(processFlag);
             CompletableFuture.runAsync(() -> {
                         try {
-                            int a = 0;
-                            for (RoleSpeechConfig roleSpeechConfig : speechConfig.getRoleSpeechConfigs()) {
-                                try {
-                                    audioCreateProcessMap.put(vo.getProject() + "-" + vo.getChapterName(), roleSpeechConfig.getLinesIndex());
-                                    createAudio(vo.getProject(), vo.getChapterName(), roleSpeechConfig);
-                                } catch (Exception e) {
-                                    log.error(e.getMessage(), e);
-                                    throw new RuntimeException(e);
+                            Map<String, List<RoleSpeechConfig>> collect = speechConfig.getRoleSpeechConfigs().stream()
+                                    .collect(Collectors.groupingBy(
+                                            v -> v.getGsvModelGroup() + "-" + v.getGsvModelName()
+                                    ));
+                            for (Map.Entry<String, List<RoleSpeechConfig>> entry : collect.entrySet()) {
+                                for (RoleSpeechConfig roleSpeechConfig : entry.getValue()) {
+                                    ProcessData processData = new ProcessData(vo.getProject(),
+                                            vo.getChapterName(), roleSpeechConfig);
+                                    taskQueue.add(processData);
                                 }
-                                a++;
                             }
-                            pathConfig.writeSpeechConfig(vo.getProject(), vo.getChapterName(), speechConfig);
-                            audioCreateProcessMap.remove(vo.getProject() + "-" + vo.getChapterName());
-                            log.info("全部音频生成结束，文件数: [{}]", a);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
+
+
                         } finally {
                             try {
                                 Files.deleteIfExists(processFlag);
@@ -538,19 +541,51 @@ public class ChapterController {
                         return null;
                     });
         }
-        speechConfig.setProcessFlag(Files.exists(processFlag));
-        speechConfig.setCreatingIndex(audioCreateProcessMap.get(vo.getProject() + "-" + vo.getChapterName()));
+        speechConfig.setProcessFlag(!taskQueue.isEmpty());
         return Result.success(speechConfig);
     }
 
+    private void changeModel(RoleSpeechConfig first) throws IOException {
+        String modelPath = pathConfig.getGsvModelPath() + first.getGsvModelGroup() + "/" + first.getGsvModelName();
+        Files.list(Path.of(modelPath)).forEach(path -> {
+            if (path.getFileName().toString().endsWith("ckpt")) {
+                first.setGptWeightsPath(pathConfig.getRemoteGsvModelPath() + "/"
+                        + first.getGsvModelGroup() + "/" + first.getGsvModelName()
+                        + "/" + path.getFileName().toString());
+            }
+            if (path.getFileName().toString().endsWith("pth")) {
+                first.setSovitsWeightsPath(pathConfig.getRemoteGsvModelPath() + "/"
+                        + first.getGsvModelGroup() + "/" + first.getGsvModelName()
+                        + "/" + path.getFileName().toString());
+            }
+        });
+
+        log.info("切换GptWeights模型: [{}]", first.getGptWeightsPath());
+        ResponseEntity<String> entity1 = restTemplate.getForEntity(
+                pathConfig.getGptSoVitsUrl() + "set_gpt_weights?weights_path=" + first.getGptWeightsPath(), String.class
+        );
+        log.info("切换GptWeights模型成功: [{}]", entity1.getBody());
+
+        log.info("切换SovitsWeights模型: [{}]", first.getSovitsWeightsPath());
+        ResponseEntity<String> entity2 = restTemplate.getForEntity(
+                pathConfig.getGptSoVitsUrl() + "set_sovits_weights?weights_path=" + first.getSovitsWeightsPath(), String.class
+        );
+        log.info("切换SovitsWeights模型成功: [{}]", entity2.getBody());
+    }
 
     public void createAudio(String project, String chapter, RoleSpeechConfig roleSpeechConfig) throws IOException {
+
+        if (StringUtils.equals(currentModel,
+                roleSpeechConfig.getGsvModelGroup() + "-" + roleSpeechConfig.getGsvModelName())) {
+            changeModel(roleSpeechConfig);
+            currentModel = roleSpeechConfig.getGsvModelGroup() + "-" + roleSpeechConfig.getGsvModelName();
+        }
 
         String group = roleSpeechConfig.getGroup();
         String model = roleSpeechConfig.getName();
 
         String moodPath = group + File.separator + model + File.separator + roleSpeechConfig.getMood();
-        String defaultMoodPath = group + File.separator + model + File.separator + "默认";
+        String defaultMoodPath = group + File.separator + model + File.separator + "中立";
         if (Files.exists(Path.of(pathConfig.getModelSpeechPath() + moodPath))) {
             Files.list(Path.of(pathConfig.getModelSpeechPath() + moodPath)).forEach(path -> {
                 if (path.getFileName().toString().endsWith(".wav")) {
@@ -597,10 +632,13 @@ public class ChapterController {
             map.put("text_split_method", "cut0");
 
             log.info("音频参数: [{}]", JSON.toJSONString(map));
-            log.info("生成音频, role: [{}], model: [{}], mood: [{}], content: [{}], linesIndex: [{}]", roleSpeechConfig.getRole(),
+            log.info("生成音频, role: [{}], model: [{}], audio: [{}], mood: [{}], content: [{}], linesIndex: [{}]",
+                    roleSpeechConfig.getGsvModelName(), roleSpeechConfig.getRole(),
                     roleSpeechConfig.getName(), roleSpeechConfig.getMood(), roleSpeechConfig.getLines(), roleSpeechConfig.getLinesIndex());
 
-            ResponseEntity<byte[]> response = restTemplate.postForEntity(pathConfig.getGptSoVitsUrl(), map, byte[].class);
+            ResponseEntity<byte[]> response = restTemplate.postForEntity(
+                    pathConfig.getGptSoVitsUrl() + "tts", map, byte[].class
+            );
 
 
             if (response.getStatusCode().is2xxSuccessful()) {
@@ -633,12 +671,10 @@ public class ChapterController {
 
     @PostMapping("querySpeechConfig")
     public Result<SpeechConfig> querySpeechConfig(@RequestBody ChapterVO vo) throws IOException {
-        Path processFlag = pathConfig.getProcessFlagPath(vo.getProject(), vo.getChapterName());
         SpeechConfig speechConfig = chapterService.querySpeechConfig(vo.getProject(), vo.getChapterName());
-
         if (Objects.nonNull(speechConfig)) {
 
-            speechConfig.setProcessFlag(Files.exists(processFlag));
+            speechConfig.setProcessFlag(!taskQueue.isEmpty());
             speechConfig.setCreatingIndex(audioCreateProcessMap.get(vo.getProject() + "-" + vo.getChapterName()));
 
             if (Objects.isNull(speechConfig.getAudioMergeInterval())) {
@@ -655,6 +691,9 @@ public class ChapterController {
 
     @PostMapping("createSpeech")
     public Result<Object> createSpeech(@RequestBody SpeechCreate speechCreate) throws IOException {
+        if (!taskQueue.isEmpty()) {
+            return Result.failure("等待其他生成结束！");
+        }
         RoleSpeechConfig newConfig = speechCreate.getRoleSpeechConfig();
         createAudio(speechCreate.getProject(), speechCreate.getChapterName(), newConfig);
         SpeechConfig speechConfig = chapterService.querySpeechConfig(speechCreate.getProject(), speechCreate.getChapterName());
@@ -695,5 +734,35 @@ public class ChapterController {
             chapterService.setStep(vo.getProject(), vo.getChapterName(), 4);
         }
         return Result.success();
+    }
+
+    @SneakyThrows
+    @PostConstruct
+    public void start() {
+        new Thread(this::createAudioProcess).start();
+    }
+
+    public static String currentModel = "";
+
+    private final BlockingQueue<ProcessData> taskQueue = new LinkedBlockingQueue<>();
+
+    public void createAudioProcess() {
+        while (true) {
+            try {
+                ProcessData take = taskQueue.take();
+                createAudio(take.getProject(), take.getChapterName(), take.getRoleSpeechConfig());
+            } catch (Exception e) {
+                log.error(e.getMessage(), e);
+            }
+        }
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProcessData {
+        private String project;
+        private String chapterName;
+        private RoleSpeechConfig roleSpeechConfig;
     }
 }

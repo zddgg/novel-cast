@@ -11,6 +11,7 @@ export interface SpeechModel {
   moods: Mood[];
   gender: string;
   ageGroup: string;
+  url: string;
 }
 
 export interface SpeechModelGroup {
@@ -32,4 +33,16 @@ export function querySpeechModels() {
 
 export function speechMarked(params: SpeechModelMarked) {
   return axios.post('/api/model/speechMarked', params);
+}
+
+export interface GsvModel {
+  id?: number;
+  name: string;
+  group: string;
+  gptWeights?: string;
+  sovitsWeights?: string;
+}
+
+export function gsvModels() {
+  return axios.post<GsvModel[]>('/api/model/gsvModels');
 }

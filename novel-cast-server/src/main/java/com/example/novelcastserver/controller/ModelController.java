@@ -3,7 +3,9 @@ package com.example.novelcastserver.controller;
 import com.alibaba.fastjson2.JSON;
 import com.example.novelcastserver.bean.*;
 import com.example.novelcastserver.config.PathConfig;
+import com.example.novelcastserver.service.ModelConfigService;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,8 +28,16 @@ public class ModelController {
 
     private final PathConfig pathConfig;
 
-    public ModelController(PathConfig pathConfig) {
+    private final ModelConfigService modelConfigService;
+
+    public ModelController(PathConfig pathConfig, ModelConfigService modelConfigService) {
         this.pathConfig = pathConfig;
+        this.modelConfigService = modelConfigService;
+    }
+
+    @PostMapping("gsvModels")
+    public Result<List<GsvModel>> gsvModels() throws IOException {
+        return Result.success(modelConfigService.getGsvModels());
     }
 
     @PostMapping("speechModels")
@@ -68,25 +78,31 @@ public class ModelController {
                                                 }
                                             }
 
+                                            String url = "";
                                             List<Mood> moods = Files.list(path1)
                                                     .filter(Files::isDirectory)
                                                     .map(path2 -> {
                                                         try {
                                                             Mood mood = new Mood();
                                                             mood.setName(path2.getFileName().toString());
-                                                            Files.list(path2).filter(path3 -> path3.getFileName().toString().endsWith(".wav")).forEach(path3 -> {
-                                                                mood.setUrl(baseUrl + path.getFileName().toString()
-                                                                        + "/" + path1.getFileName().toString()
-                                                                        + "/" + path2.getFileName().toString()
-                                                                        + "/" + path3.getFileName());
-                                                                mood.setText(path3.getFileName().toString().replace(".wav", ""));
-                                                            });
+                                                            Files.list(path2)
+                                                                    .filter(path3 -> path3.getFileName().toString().endsWith(".wav"))
+                                                                    .forEach(path3 -> {
+                                                                        mood.setUrl(baseUrl + path.getFileName().toString()
+                                                                                + "/" + path1.getFileName().toString()
+                                                                                + "/" + path2.getFileName().toString()
+                                                                                + "/" + path3.getFileName());
+                                                                        mood.setText(path3.getFileName().toString().replace(".wav", ""));
+                                                                    });
                                                             return mood;
                                                         } catch (IOException e) {
                                                             throw new RuntimeException(e);
                                                         }
-                                                    }).sorted(Comparator.comparing(m -> !StringUtils.equals(m.getName(), "默认"))).toList();
+                                                    }).sorted(Comparator.comparing(m -> !StringUtils.equals(m.getName(), "中立"))).toList();
                                             speechModel.setMoods(moods);
+                                            if (!CollectionUtils.isEmpty(moods)) {
+                                                speechModel.setUrl(moods.getFirst().getUrl());
+                                            }
                                             return speechModel;
                                         } catch (IOException e) {
                                             throw new RuntimeException(e);

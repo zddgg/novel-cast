@@ -43,11 +43,21 @@ const LIST: AppRouteRecordRaw = {
       },
     },
     {
-      path: 'model', // The midline path complies with SEO specifications
-      name: 'Model',
-      component: () => import('@/views/model/index.vue'),
+      path: 'gsvModel', // The midline path complies with SEO specifications
+      name: 'gsvModel',
+      component: () => import('@/views/gsvModel/index.vue'),
       meta: {
-        locale: 'menu.novelCast.model',
+        locale: 'menu.novelCast.gsvModel',
+        requiresAuth: true,
+        roles: ['*'],
+      },
+    },
+    {
+      path: 'gsvAudio', // The midline path complies with SEO specifications
+      name: 'gsvAudio',
+      component: () => import('@/views/gsvAudio/index.vue'),
+      meta: {
+        locale: 'menu.novelCast.gsvAudio',
         requiresAuth: true,
         roles: ['*'],
       },

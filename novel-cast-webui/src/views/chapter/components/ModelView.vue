@@ -4,6 +4,18 @@
       <div>
         <div style="text-align: right">
           <a-space size="large">
+            <a-button
+              v-if="
+                roleConfigs &&
+                roleConfigs.length > 0 &&
+                linesConfigs &&
+                linesConfigs.length > 0
+              "
+              type="primary"
+              @click="handleLoadProjectRoleModel"
+            >
+              加载预置角色模型
+            </a-button>
             <span v-if="!aiProcess && !aiIgnore" style="font-size: 16px"
               >还没有AI分析结果</span
             >
@@ -82,36 +94,128 @@
               <a-row>
                 <a-col :span="8">
                   <a-form-item label="角色">
-                    <a-input v-model="item.role.role" />
+                    <a-input v-model="item.role.role" readonly />
                   </a-form-item>
                 </a-col>
+              </a-row>
+              <a-row>
                 <a-col :span="8">
-                  <a-form-item label="语音模型">
+                  <a-form-item label="模型">
                     <a-cascader
-                      v-model="item.tmpModels"
-                      multiple
+                      v-model="item.tmpGsvModel"
                       path-mode
-                      :options="speechModelData"
+                      :options="gsvModelDataOptions"
                       @change="(value) => {
-                        item.models = (value as []).map((item1) => {
-                          return {group: item1[0], name: item1[1]}
-                        })
+                        item.gsvModel = {
+                          group:(value as string[])[0],
+                          name:(value as string[])[1]
+                        }
                       }"
                     />
                   </a-form-item>
                 </a-col>
                 <a-col :span="8">
-                  <a-form-item label="模型策略">
-                    <a-select v-model="item.strategyType">
-                      <a-option>固定</a-option>
-                      <a-option>顺序</a-option>
-                      <a-option>随机</a-option>
-                    </a-select>
+                  <a-form-item label="音色">
+                    <a-cascader
+                      v-model="item.tmpModel"
+                      path-mode
+                      :options="speechModelOptions"
+                      @change="(value) => {
+                            item.model = {
+                              group:(value as string[])[0],
+                              name:(value as string[])[1]
+                            }
+                          }"
+                    >
+                      <template #option="{ data }">
+                        <div
+                          v-if="data.isLeaf"
+                          style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                          "
+                        >
+                          <span>{{ data.value }}</span>
+                          <a-button
+                            v-if="
+                              activeAudio !== data.parent.key + '-' + data.value
+                            "
+                            type="outline"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="playAudio(data)"
+                          >
+                            <icon-play-arrow-fill :size="16" />
+                          </a-button>
+                          <a-button
+                            v-else
+                            type="outline"
+                            status="danger"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="stopAudio"
+                          >
+                            <icon-mute-fill :size="16" />
+                          </a-button>
+                        </div>
+                        <span v-else>
+                          {{ data.value }}
+                        </span>
+                      </template>
+                    </a-cascader>
                   </a-form-item>
                 </a-col>
                 <a-col :span="8">
-                  <a-form-item label="语音情感">
-                    <a-select v-model="item.moods" multiple> </a-select>
+                  <a-form-item label="情感">
+                    <a-select v-model="item.mood">
+                      <a-option
+                        v-for="(item1, index1) in computedMoods(
+                          item.model?.group,
+                          item.model?.name
+                        )"
+                        :key="index1"
+                        :value="item1.name"
+                      >
+                        <div
+                          style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            width: 100%;
+                          "
+                        >
+                          <span>{{ item1.name }}</span>
+                          <a-button
+                            v-if="
+                              activeAudio !==
+                              `${item1.group}-${item1.audioName}-${item1.name}`
+                            "
+                            type="outline"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="
+                              playMoodAudio(
+                                `${item1.group}-${item1.audioName}-${item1.name}`,
+                                item1.url
+                              )
+                            "
+                          >
+                            <icon-play-arrow-fill :size="16" />
+                          </a-button>
+                          <a-button
+                            v-else
+                            type="outline"
+                            status="danger"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="stopAudio"
+                          >
+                            <icon-mute-fill :size="16" />
+                          </a-button>
+                        </div>
+                      </a-option>
+                    </a-select>
                   </a-form-item>
                 </a-col>
               </a-row>
@@ -126,7 +230,7 @@
               <a-row>
                 <a-col :span="8">
                   <a-form-item label="角色">
-                    <a-input v-model="item.role.role" />
+                    <a-input v-model="item.role.role" readonly />
                   </a-form-item>
                 </a-col>
                 <a-col :span="8">
@@ -140,46 +244,132 @@
                   </a-form-item>
                 </a-col>
                 <a-col :span="8">
-                  <a-form-item label="语音模型">
+                  <a-form-item label="模型">
                     <a-cascader
-                      v-model="item.tmpModels"
-                      multiple
+                      v-model="item.tmpGsvModel"
                       path-mode
-                      :options="speechModelData"
+                      :options="gsvModelDataOptions"
                       @change="(value) => {
-                        item.models = (value as []).map((item1) => {
-                          return {group: item1[0], name: item1[1]}
-                        })
+                        item.gsvModel = {
+                          group:(value as string[])[0],
+                          name:(value as string[])[1]
+                        }
                       }"
                     />
                   </a-form-item>
                 </a-col>
                 <a-col :span="8">
-                  <a-form-item label="模型策略">
-                    <a-select v-model="item.strategyType">
-                      <a-option>固定</a-option>
-                      <a-option>顺序</a-option>
-                      <a-option>随机</a-option>
-                    </a-select>
+                  <a-form-item label="音色">
+                    <a-cascader
+                      v-model="item.tmpModel"
+                      path-mode
+                      :options="speechModelOptions"
+                      @change="(value) => {
+                            item.model = {
+                              group:(value as string[])[0],
+                              name:(value as string[])[1]
+                            }
+                          }"
+                    >
+                      <template #option="{ data }">
+                        <div
+                          v-if="data.isLeaf"
+                          style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                          "
+                        >
+                          <span>{{ data.value }}</span>
+                          <a-button
+                            v-if="
+                              activeAudio !== data.parent.key + '-' + data.value
+                            "
+                            type="outline"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="playAudio(data)"
+                          >
+                            <icon-play-arrow-fill :size="16" />
+                          </a-button>
+                          <a-button
+                            v-else
+                            type="outline"
+                            status="danger"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="stopAudio"
+                          >
+                            <icon-mute-fill :size="16" />
+                          </a-button>
+                        </div>
+                        <span v-else>
+                          {{ data.value }}
+                        </span>
+                      </template>
+                    </a-cascader>
                   </a-form-item>
                 </a-col>
                 <a-col :span="8">
-                  <a-form-item label="语音情感">
-                    <a-select v-model="item.moods" multiple> </a-select>
+                  <a-form-item label="情感">
+                    <a-select v-model="item.mood">
+                      <a-option
+                        v-for="(item1, index1) in computedMoods(
+                          item.model?.group,
+                          item.model?.name
+                        )"
+                        :key="index1"
+                        :value="item1.name"
+                      >
+                        <div
+                          style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            width: 100%;
+                          "
+                        >
+                          <span>{{ item1.name }}</span>
+                          <a-button
+                            v-if="
+                              activeAudio !==
+                              `${item1.group}-${item1.audioName}-${item1.name}`
+                            "
+                            type="outline"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="
+                              playMoodAudio(
+                                `${item1.group}-${item1.audioName}-${item1.name}`,
+                                item1.url
+                              )
+                            "
+                          >
+                            <icon-play-arrow-fill :size="16" />
+                          </a-button>
+                          <a-button
+                            v-else
+                            type="outline"
+                            status="danger"
+                            size="mini"
+                            style="margin-left: 10px"
+                            @click.stop="stopAudio"
+                          >
+                            <icon-mute-fill :size="16" />
+                          </a-button>
+                        </div>
+                      </a-option>
+                    </a-select>
                   </a-form-item>
                 </a-col>
               </a-row>
-              <a-row
-                v-if="!['标题', '旁白'].includes(item.role.role)"
-                style="display: flex; justify-content: right"
-              >
+              <a-row style="display: flex; justify-content: right">
                 <a-space size="large">
                   <a-popconfirm
                     v-if="!item.role.backup"
                     content="这个角色的台词怎么处理?"
                     type="error"
                     ok-text="合并到其他角色"
-                    cancel-text="当旁白处理"
                     @ok="handleConfirmOk(item.role)"
                   >
                     <a-button
@@ -219,35 +409,12 @@
                   <a-row>
                     <a-col :span="12">
                       <a-form-item label="角色">
-                        <a-input v-model="item.linesMapping.role" />
+                        <a-input v-model="item.linesMapping.role" readonly />
                       </a-form-item>
                     </a-col>
                     <a-col :span="12">
                       <a-form-item label="情感">
-                        <a-input v-model="item.linesMapping.mood" />
-                      </a-form-item>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-form-item label="语音模型">
-                        <a-cascader
-                          v-model="item.tmpModel"
-                          :options="speechModelData"
-                          path-mode
-                          @change="(value) => {
-                            item.model = {
-                              group: (value as string[])[0],
-                              name: (value as string[])[1],
-                            }
-                          }"
-                        />
-                      </a-form-item>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-form-item label="语音情感">
-                        <a-select
-                          v-model="item.mood"
-                          :options="computedMoods(item.model) as string[]"
-                        ></a-select>
+                        <a-input v-model="item.linesMapping.mood" readonly />
                       </a-form-item>
                     </a-col>
                   </a-row>
@@ -309,13 +476,14 @@
         </a-form-item>
       </a-form>
     </a-modal>
+    <audio ref="audioElement" @ended="handleAudioEnded"></audio>
   </div>
 </template>
 
 <script setup lang="ts">
   import { onMounted, ref, watch } from 'vue';
   import { useRoute } from 'vue-router';
-  import { CascaderOption, Message } from '@arco-design/web-vue';
+  import { CascaderOption, Message, Modal } from '@arco-design/web-vue';
   import useLoading from '@/hooks/loading';
   import { FetchStream, IFetchStreamOptions } from '@/api/stream';
   import {
@@ -323,14 +491,23 @@
     ignoreAiResult,
     LinesConfig,
     ModelConfig,
-    ModelItem,
     queryModelConfig,
     Role,
     RoleModelConfig,
     saveAiReInferenceResult,
     updateModelConfig,
   } from '@/api/chapter';
-  import { querySpeechModels, SpeechModelGroup } from '@/api/model';
+  import {
+    GsvModel,
+    gsvModels,
+    querySpeechModels,
+    SpeechModelGroup,
+  } from '@/api/model';
+  import {
+    checkProjectRoleModel,
+    loadProjectRoleModel,
+    setProjectRoleModel,
+  } from '@/api/project';
 
   const route = useRoute();
   const props = defineProps({
@@ -344,6 +521,8 @@
     'linesPointerForRole',
     'linesPointer',
   ]);
+
+  const audioElement = ref<HTMLAudioElement | null>(null); // ref 对象引用到 audio 元素
 
   const { loading, setLoading } = useLoading();
 
@@ -361,13 +540,13 @@
 
   // start
 
-  const speechModelData = ref<CascaderOption[]>([]);
-  const speechMood = ref<SpeechModelGroup[]>([]);
+  const speechModelOptions = ref<CascaderOption[]>([]);
+  const speechModelData = ref<SpeechModelGroup[]>([]);
 
   const getSpeechModels = async () => {
     const { data } = await querySpeechModels();
-    speechMood.value = data;
-    speechModelData.value = data.map((item) => {
+    speechModelData.value = data;
+    speechModelOptions.value = data.map((item) => {
       return {
         value: item.group,
         children: item.speechModels.map((item1) => {
@@ -377,22 +556,26 @@
     });
   };
 
-  const computedMoods = (modelItem: ModelItem) => {
-    if (!modelItem || !modelItem.group || !modelItem.name) {
-      return null;
+  const computedMoods = (group: string, name: string) => {
+    if (group && name) {
+      const groupValue = `${group}-${name}`;
+      return speechModelData.value
+        .flatMap((item) =>
+          item.speechModels.map((model) => ({
+            ...model,
+            group: item.group,
+          }))
+        )
+        .filter((item) => groupValue === `${item.group}-${item.name}`)
+        .flatMap((item) =>
+          item.moods.map((mood) => ({
+            ...mood,
+            group: item.group,
+            audioName: item.name,
+          }))
+        );
     }
-    return speechMood.value
-      .flatMap((item) =>
-        item.speechModels.map((model) => ({
-          ...model,
-          group: item.group,
-        }))
-      )
-      .filter(
-        (item) => modelItem.group === item.group && modelItem.name === item.name
-      )
-      .flatMap((item) => item.moods)
-      .map((mood) => mood.name);
+    return [];
   };
 
   const commonRoleConfigs = ref<RoleModelConfig[]>([]);
@@ -461,28 +644,29 @@
       (item: RoleModelConfig) => {
         return {
           ...item,
-          tmpModels: item.models?.map((item1) => {
-            return [item1.group, item1.name];
-          }),
+          tmpGsvModel: item.gsvModel
+            ? [item.gsvModel.group, item.gsvModel.name]
+            : [],
+          tmpModel: item.model ? [item.model.group, item.model.name] : [],
         };
       }
     );
     roleConfigs.value = data.roleConfigs.map((item: RoleModelConfig) => {
       return {
         ...item,
-        tmpModels: item.models?.map((item1) => {
-          return [item1.group, item1.name];
-        }),
+        tmpGsvModel: item.gsvModel
+          ? [item.gsvModel.group, item.gsvModel.name]
+          : [],
+        tmpModel: item.model ? [item.model.group, item.model.name] : [],
       };
     });
     linesConfigs.value = data.linesConfigs.map((item: LinesConfig) => {
-      let tmpModel: string[] = [];
-      if (item.model) {
-        tmpModel = [item.model.group, item.model.name];
-      }
       return {
         ...item,
-        tmpModel,
+        tmpGsvModel: item.gsvModel
+          ? [item.gsvModel.group, item.gsvModel.name]
+          : [],
+        tmpModel: item.model ? [item.model.group, item.model.name] : [],
       };
     });
   };
@@ -620,7 +804,156 @@
     emits('closeDrawerFetchData');
   };
 
+  const gsvModelDataOptions = ref<CascaderOption[]>([]);
+
+  const getGsvModels = async () => {
+    const { data } = await gsvModels();
+    gsvModelDataOptions.value = data
+      .reduce((acc: any, item) => {
+        const { group } = item;
+        let groupItem = acc.find((g: GsvModel) => g.group === group);
+        if (!groupItem) {
+          groupItem = { group, list: [] } as any;
+          acc.push(groupItem);
+        }
+        groupItem.list.push(item);
+        return acc;
+      }, [])
+      .map((item) => {
+        return {
+          value: item.group,
+          children: item.list.map((item1) => {
+            return { value: item1.name };
+          }),
+        };
+      });
+  };
+
+  const activeAudio = ref('');
+
+  const playAudio = (data: any) => {
+    const model = data.value;
+    const group = data.parent.key;
+    activeAudio.value = `${group}-${model}`;
+    let url;
+    speechModelData.value.forEach((item) => {
+      item.speechModels.forEach((item1) => {
+        if (item.group === group && item1.name === model) {
+          url = item1.url;
+        }
+      });
+    });
+    if (audioElement.value) {
+      // 设置音频源
+      audioElement.value.src = url;
+      // 播放音频
+      audioElement.value.play();
+    }
+  };
+
+  const playMoodAudio = (key: any, url) => {
+    activeAudio.value = key;
+    if (audioElement.value) {
+      // 设置音频源
+      audioElement.value.src = url;
+      // 播放音频
+      audioElement.value.play();
+    }
+  };
+
+  const stopAudio = () => {
+    if (audioElement.value) {
+      // 停止音频播放
+      audioElement.value.pause();
+      audioElement.value.currentTime = 0; // 将播放进度设置为音频开头
+    }
+    activeAudio.value = '';
+  };
+
+  const handleAudioEnded = () => {
+    activeAudio.value = '';
+  };
+
+  const handleLoadProjectRoleModel = async () => {
+    const { data } = await loadProjectRoleModel({
+      project: route.query.project as string,
+      roles: roleConfigs.value.map((item) => item.role.role),
+    });
+
+    roleConfigs.value = roleConfigs.value.map((item: RoleModelConfig) => {
+      const find = data.find((item1) => item1.role === item.role.role);
+      if (find) {
+        return {
+          ...item,
+          gsvModel: find.gsvModel,
+          model: find.model,
+          mood: find.mood,
+          tmpGsvModel: find.gsvModel
+            ? [find.gsvModel.group, find.gsvModel.name]
+            : [],
+          tmpModel: find.model ? [find.model.group, find.model.name] : [],
+        } as any;
+      }
+      return {
+        ...item,
+        tmpGsvModel: item.gsvModel
+          ? [item.gsvModel.group, item.gsvModel.name]
+          : [],
+        tmpModel: item.model ? [item.model.group, item.model.name] : [],
+      };
+    });
+    linesConfigs.value = linesConfigs.value.map((item: LinesConfig) => {
+      const find = data.find((item1) => item1.role === item.linesMapping.role);
+      if (find) {
+        return {
+          ...item,
+          gsvModel: find.gsvModel,
+          model: find.model,
+          mood: find.mood,
+          tmpGsvModel: find.gsvModel
+            ? [find.gsvModel.group, find.gsvModel.name]
+            : [],
+          tmpModel: find.model ? [find.model.group, find.model.name] : [],
+        } as any;
+      }
+      return {
+        ...item,
+        tmpGsvModel: item.gsvModel
+          ? [item.gsvModel.group, item.gsvModel.name]
+          : [],
+        tmpModel: item.model ? [item.model.group, item.model.name] : [],
+      };
+    });
+  };
+
+  const handleSetProjectRoleModel = async (config: RoleModelConfig) => {
+    const { data } = await checkProjectRoleModel({
+      project: route.query.project as string,
+      role: config.role.role,
+      gsvModel: config.gsvModel,
+      model: config.model,
+      mood: config.mood,
+    } as any);
+    if (!data) {
+      Modal.warning({
+        title: '已存在预置角色模型，是否覆盖配置？',
+        content: () => false,
+        async onOk() {
+          const { msg } = await setProjectRoleModel({
+            project: route.query.project as string,
+            role: config.role.role,
+            gsvModel: config.gsvModel,
+            model: config.model,
+            mood: config.mood,
+          } as any);
+          Message.success(msg);
+        },
+      });
+    }
+  };
+
   onMounted(() => {
+    getGsvModels();
     getSpeechModels();
   });
 

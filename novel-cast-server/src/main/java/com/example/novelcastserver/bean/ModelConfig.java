@@ -17,14 +17,16 @@ public class ModelConfig {
     @Data
     public static class RoleModelConfig {
         private Role role;
-        private List<Model> models;
+        private GsvModel gsvModel;
+        private Model model;
         private String strategyType;
-        private List<String> moods;
+        private String mood;
     }
 
     @Data
     public static class LinesConfig {
         private LinesMapping linesMapping;
+        private GsvModel gsvModel;
         private Model model;
         private String mood;
     }

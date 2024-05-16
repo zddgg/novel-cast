@@ -51,27 +51,138 @@
         column-resizable
         @row-click="rowClick"
       >
-        <template #model="{ record }">
-          <a-cascader
-            v-model="record.model"
-            :options="speechModelData"
-            popup-container="#speechConfigTable"
-            path-mode
-            @change="(value) => {
-              record.group = (value as string[])[0];
-              record.name = (value as string[])[1];
-            }"
-          />
+        <template #role="{ record }">
+          <a-space direction="vertical" style="width: 100%">
+            <span>{{ record.role }}</span>
+            <a-tag v-if="record.gender" color="#165dff">
+              <span>{{ record.gender }}</span>
+            </a-tag>
+            <a-tag v-if="record.ageGroup" color="#165dff">
+              <span>{{ record.ageGroup }}</span>
+            </a-tag>
+          </a-space>
         </template>
-        <template #mood="{ record }">
-          <a-select
-            v-model="record.mood"
-            popup-container="#speechConfigTable"
-            :options="computedMoods(record.group + '-' + record.name)"
-          ></a-select>
+        <template #modelConfig="{ record }">
+          <a-space direction="vertical" style="width: 100%">
+            <a-descriptions :column="1">
+              <a-descriptions-item label="模型">
+                <a-cascader
+                  v-model="record.gsvModel"
+                  :options="gsvModelDataOptions"
+                  popup-container="#speechConfigTable"
+                  path-mode
+                  @change="(value) => {
+                    record.gsvModelGroup = (value as string[])[0];
+                    record.gsvModelName = (value as string[])[1];
+                  }"
+                />
+              </a-descriptions-item>
+              <a-descriptions-item label="音色">
+                <a-cascader
+                  v-model="record.model"
+                  :options="speechModelOptions"
+                  popup-container="#speechConfigTable"
+                  path-mode
+                  @change="(value) => {
+                    record.group = (value as string[])[0];
+                    record.name = (value as string[])[1];
+                  }"
+                >
+                  <template #option="{ data }">
+                    <div
+                      v-if="data.isLeaf"
+                      style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                      "
+                    >
+                      <span>{{ data.value }}</span>
+                      <a-button
+                        v-if="
+                          activeAudio !== data.parent.key + '-' + data.value
+                        "
+                        type="outline"
+                        size="mini"
+                        style="margin-left: 10px"
+                        @click.stop="playModelAudio(data)"
+                      >
+                        <icon-play-arrow-fill :size="16" />
+                      </a-button>
+                      <a-button
+                        v-else
+                        type="outline"
+                        status="danger"
+                        size="mini"
+                        style="margin-left: 10px"
+                        @click.stop="stopModelAudio"
+                      >
+                        <icon-mute-fill :size="16" />
+                      </a-button>
+                    </div>
+                    <span v-else>
+                      {{ data.value }}
+                    </span>
+                  </template>
+                </a-cascader>
+              </a-descriptions-item>
+              <a-descriptions-item label="情感">
+                <a-select
+                  v-model="record.mood"
+                  popup-container="#speechConfigTable"
+                >
+                  <a-option
+                    v-for="(item, index) in computedMoods(
+                      record.group,
+                      record.name
+                    )"
+                    :key="index"
+                  >
+                    <div
+                      style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        width: 100%;
+                      "
+                    >
+                      <span>{{ item.name }}</span>
+                      <a-button
+                        v-if="
+                          activeAudio !==
+                          `${item.group}-${item.audioName}-${item.name}`
+                        "
+                        type="outline"
+                        size="mini"
+                        style="margin-left: 10px"
+                        @click.stop="
+                          playMoodAudio(
+                            `${item.group}-${item.audioName}-${item.name}`,
+                            item.url
+                          )
+                        "
+                      >
+                        <icon-play-arrow-fill :size="16" />
+                      </a-button>
+                      <a-button
+                        v-else
+                        type="outline"
+                        status="danger"
+                        size="mini"
+                        style="margin-left: 10px"
+                        @click.stop="stopModelAudio"
+                      >
+                        <icon-mute-fill :size="16" />
+                      </a-button>
+                    </div>
+                  </a-option>
+                </a-select>
+              </a-descriptions-item>
+            </a-descriptions>
+          </a-space>
         </template>
-        <template #speedControl="{ record }">
-          <a-space direction="vertical">
+        <template #paramControl="{ record }">
+          <a-space direction="vertical" style="width: 100%">
             <a-select
               v-model="record.speedControl"
               default-value="1"
@@ -90,12 +201,13 @@
           <a-textarea v-model="record.lines" auto-size></a-textarea>
         </template>
         <template #operations="{ rowIndex, record }">
-          <a-space direction="vertical" size="medium">
+          <a-space direction="vertical" size="small">
             <div>
               <a-button
                 v-if="activeAudioIndex === rowIndex"
                 type="outline"
                 status="danger"
+                size="small"
                 @click="stopAudio"
               >
                 <template #icon>
@@ -106,6 +218,7 @@
               <a-button
                 v-else
                 type="outline"
+                size="small"
                 :disabled="!record.audioUrl"
                 @click="playAudio(rowIndex, record)"
               >
@@ -122,15 +235,18 @@
             >
               <a-button
                 type="primary"
+                size="small"
                 :loading="loading && activeCreateIndex === record.linesIndex"
-                :disabled="loading"
+                :disabled="loading || processFlag"
               >
                 重新生成
               </a-button>
             </a-popconfirm>
             <a-button
+              type="primary"
+              size="small"
               :disabled="processFlag"
-              :status="record.combineIgnore ? 'warning' : 'normal'"
+              :status="record.combineIgnore ? 'danger' : 'warning'"
               @click="() => (record.combineIgnore = !record.combineIgnore)"
             >
               {{ record.combineIgnore ? '已选择忽略' : '合成时忽略' }}
@@ -162,7 +278,6 @@
         </div>
         <a-button
           type="primary"
-          status="danger"
           size="large"
           :loading="loading"
           :disabled="hasEmptyAudioUrl() || processFlag"
@@ -192,7 +307,12 @@
     createSpeechConfig,
   } from '@/api/chapter';
   import useLoading from '@/hooks/loading';
-  import { querySpeechModels, SpeechModelGroup } from '@/api/model';
+  import {
+    GsvModel,
+    gsvModels,
+    querySpeechModels,
+    SpeechModelGroup,
+  } from '@/api/model';
   import { CascaderOption, Message, Modal } from '@arco-design/web-vue';
 
   const route = useRoute();
@@ -214,6 +334,7 @@
   const { loading, setLoading } = useLoading();
 
   const audioElement = ref<HTMLAudioElement | null>(null); // ref 对象引用到 audio 元素
+  const activeAudio = ref('');
   const activeAudioIndex = ref<number>(-1);
   const activeCreateIndex = ref<number>(-1);
 
@@ -230,22 +351,17 @@
     },
     {
       title: '角色',
-      dataIndex: 'role',
+      slotName: 'role',
+      width: 80,
     },
     {
-      title: '模型',
-      dataIndex: 'model',
-      slotName: 'model',
-    },
-    {
-      title: '感情',
-      dataIndex: 'mood',
-      slotName: 'mood',
+      title: '模型配置',
+      slotName: 'modelConfig',
+      width: 100,
     },
     {
       title: '参数控制',
-      dataIndex: 'speedControl',
-      slotName: 'speedControl',
+      slotName: 'paramControl',
       width: 100,
     },
     {
@@ -257,6 +373,7 @@
       title: '操作',
       dataIndex: 'operations',
       slotName: 'operations',
+      width: 100,
     },
   ]);
 
@@ -346,6 +463,7 @@
     roleSpeechConfigs.value = data.roleSpeechConfigs.map((item) => {
       return {
         ...item,
+        gsvModel: [item.gsvModelGroup, item.gsvModelName],
         model: [item.group, item.name],
       };
     });
@@ -438,13 +556,13 @@
     }
   };
 
-  const speechModelData = ref<CascaderOption[]>([]);
-  const speechMood = ref<SpeechModelGroup[]>([]);
+  const speechModelOptions = ref<CascaderOption[]>([]);
+  const speechModelData = ref<SpeechModelGroup[]>([]);
 
   const getSpeechModels = async () => {
     const { data } = await querySpeechModels();
-    speechMood.value = data;
-    speechModelData.value = data.map((item) => {
+    speechModelData.value = data;
+    speechModelOptions.value = data.map((item) => {
       return {
         value: item.group,
         children: item.speechModels.map((item1) => {
@@ -454,17 +572,26 @@
     });
   };
 
-  const computedMoods = (groupValue: string) => {
-    return speechMood.value
-      .flatMap((item) =>
-        item.speechModels.map((model) => ({
-          ...model,
-          group: item.group,
-        }))
-      )
-      .filter((item) => groupValue === `${item.group}-${item.name}`)
-      .flatMap((item) => item.moods)
-      .map((mood) => mood.name);
+  const computedMoods = (group: string, name: string) => {
+    if (group && name) {
+      const groupValue = `${group}-${name}`;
+      return speechModelData.value
+        .flatMap((item) =>
+          item.speechModels.map((model) => ({
+            ...model,
+            group: item.group,
+          }))
+        )
+        .filter((item) => groupValue === `${item.group}-${item.name}`)
+        .flatMap((item) =>
+          item.moods.map((mood) => ({
+            ...mood,
+            group: item.group,
+            audioName: item.name,
+          }))
+        );
+    }
+    return [];
   };
 
   const handleCombineAudio = async () => {
@@ -554,7 +681,72 @@
     }
   };
 
+  const gsvModelDataOptions = ref<CascaderOption[]>([]);
+
+  const getGsvModels = async () => {
+    const { data } = await gsvModels();
+    gsvModelDataOptions.value = data
+      .reduce((acc: any, item) => {
+        const { group } = item;
+        let groupItem = acc.find((g: GsvModel) => g.group === group);
+        if (!groupItem) {
+          groupItem = { group, list: [] } as any;
+          acc.push(groupItem);
+        }
+        groupItem.list.push(item);
+        return acc;
+      }, [])
+      .map((item) => {
+        return {
+          value: item.group,
+          children: item.list.map((item1) => {
+            return { value: item1.name };
+          }),
+        };
+      });
+  };
+
+  const playModelAudio = (data: any) => {
+    const model = data.value;
+    const group = data.parent.key;
+    activeAudio.value = `${group}-${model}`;
+    let url;
+    speechModelData.value.forEach((item) => {
+      item.speechModels.forEach((item1) => {
+        if (item.group === group && item1.name === model) {
+          url = item1.url;
+        }
+      });
+    });
+    if (audioElement.value) {
+      // 设置音频源
+      audioElement.value.src = url;
+      // 播放音频
+      audioElement.value.play();
+    }
+  };
+
+  const playMoodAudio = (key: any, url) => {
+    activeAudio.value = key;
+    if (audioElement.value) {
+      // 设置音频源
+      audioElement.value.src = url;
+      // 播放音频
+      audioElement.value.play();
+    }
+  };
+
+  const stopModelAudio = () => {
+    if (audioElement.value) {
+      // 停止音频播放
+      audioElement.value.pause();
+      audioElement.value.currentTime = 0; // 将播放进度设置为音频开头
+    }
+    activeAudio.value = '';
+  };
+
   onMounted(() => {
+    getGsvModels();
     getSpeechModels();
   });
 

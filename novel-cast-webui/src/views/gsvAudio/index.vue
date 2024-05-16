@@ -2,119 +2,116 @@
   <div class="container">
     <a-row :gutter="20" align="stretch">
       <a-col :span="24">
-        <a-card class="general-card" title="模型列表">
-          <a-row justify="space-between">
+        <a-card class="general-card" title="音频列表">
+          <a-row>
             <a-col :span="24">
               <a-tabs :default-active-tab="1" type="rounded">
                 <a-tab-pane
                   v-for="(item, index) in speechModelData"
                   :key="index"
                   :title="item.group"
+                  style="display: flex"
                 >
-                  <a-grid :cols="4" :col-gap="24" :row-gap="24">
-                    <a-grid-item
+                  <a-space wrap align="start" size="large">
+                    <a-card
                       v-for="(item1, index1) in item.speechModels"
                       :key="index1"
+                      hoverable
+                      style="width: 350px"
                     >
-                      <a-card hoverable>
-                        <div
-                          style="display: flex; justify-content: space-between"
-                        >
-                          <div>
-                            <span
-                              style="font-size: 1.5rem; margin-right: 10px"
-                              >{{ item1.name }}</span
-                            >
-                            <a-tag
-                              v-if="item1.gender && item1.ageGroup"
-                              size="small"
-                              color="green"
-                            >
-                              <template #icon>
-                                <icon-check-circle-fill />
-                              </template>
-                              <span>已标记</span>
-                            </a-tag>
-                            <a-tag v-else size="small" color="red">
-                              <template #icon>
-                                <icon-close-circle-fill />
-                              </template>
-                              <span>未标记</span>
-                            </a-tag>
-                          </div>
-                          <a-button
+                      <div
+                        style="display: flex; justify-content: space-between"
+                      >
+                        <div>
+                          <span style="font-size: 1.5rem; margin-right: 10px">{{
+                            item1.name
+                          }}</span>
+                          <a-tag
+                            v-if="item1.gender && item1.ageGroup"
                             size="small"
-                            type="primary"
-                            @click="handleSpeechMarked(item.group, item1.name)"
-                            >标记</a-button
+                            color="green"
                           >
+                            <template #icon>
+                              <icon-check-circle-fill />
+                            </template>
+                            <span>已标记</span>
+                          </a-tag>
+                          <a-tag v-else size="small" color="red">
+                            <template #icon>
+                              <icon-close-circle-fill />
+                            </template>
+                            <span>未标记</span>
+                          </a-tag>
                         </div>
-                        <div
-                          style="
-                            margin-top: 20px;
-                            display: flex;
-                            justify-content: space-between;
+                        <a-button
+                          size="small"
+                          type="primary"
+                          @click="handleSpeechMarked(item.group, item1.name)"
+                          >标记</a-button
+                        >
+                      </div>
+                      <div
+                        style="
+                          margin-top: 20px;
+                          display: flex;
+                          justify-content: space-between;
+                        "
+                      >
+                        <a-space>
+                          <a-tag v-if="item1.gender" color="#165dff">{{
+                            item1.gender
+                          }}</a-tag>
+                          <a-tag v-if="item1.ageGroup" color="#165dff">{{
+                            item1.ageGroup
+                          }}</a-tag>
+                        </a-space>
+                      </div>
+                      <div style="margin-top: 20px">
+                        <a-space wrap>
+                          <div
+                            v-for="(item2, index2) in item1.moods"
+                            :key="index2"
+                          >
+                            <a-button
+                              v-if="
+                                actionMood.key1 ===
+                                `${item.group}-${item1.name}-${item2.name}`
+                              "
+                              type="outline"
+                              status="danger"
+                              @click="stopAudio"
+                            >
+                              <template #icon>
+                                <icon-mute-fill />
+                              </template>
+                              {{ '停止' }}
+                            </a-button>
+                            <a-button
+                              v-else
+                              type="outline"
+                              @click="
+                                playAudio(item2, `${item.group}-${item1.name}`)
+                              "
+                            >
+                              <template #icon>
+                                <icon-sound-fill />
+                              </template>
+                              {{ item2.name }}
+                            </a-button>
+                          </div>
+                        </a-space>
+                      </div>
+                      <div style="margin-top: 20px">
+                        <a-typography-text
+                          v-if="
+                            actionMood.key === `${item.group}-${item1.name}`
                           "
                         >
-                          <a-space>
-                            <a-tag v-if="item1.gender" color="#165dff">{{
-                              item1.gender
-                            }}</a-tag>
-                            <a-tag v-if="item1.ageGroup" color="#165dff">{{
-                              item1.ageGroup
-                            }}</a-tag>
-                          </a-space>
-                        </div>
-                        <div style="margin-top: 20px">
-                          <a-space wrap>
-                            <div
-                              v-for="(item2, index2) in item1.moods"
-                              :key="index2"
-                            >
-                              <a-button
-                                v-if="
-                                  actionMood.key1 ===
-                                  `${item.group}-${item1.name}-${item2.name}`
-                                "
-                                type="outline"
-                                status="danger"
-                                @click="stopAudio"
-                              >
-                                <template #icon>
-                                  <icon-mute-fill />
-                                </template>
-                                {{ '停止' }}
-                              </a-button>
-                              <a-button
-                                v-else
-                                type="outline"
-                                @click="
-                                  playAudio(
-                                    item2,
-                                    `${item.group}-${item1.name}`
-                                  )
-                                "
-                              >
-                                <template #icon>
-                                  <icon-sound-fill />
-                                </template>
-                                {{ item2.name }}
-                              </a-button>
-                            </div>
-                          </a-space>
-                        </div>
-                        <div style="margin-top: 20px">
-                          <a-typography-text
-                            v-if="
-                              actionMood.key === `${item.group}-${item1.name}`
-                            "
-                          >
-                            {{ actionMood.text }}
-                          </a-typography-text>
-                        </div>
-                      </a-card>
-                    </a-grid-item>
-                  </a-grid>
+                          {{ actionMood.text }}
+                        </a-typography-text>
+                      </div>
+                    </a-card>
+                  </a-space>
                 </a-tab-pane>
                 <a-button>新增</a-button>
               </a-tabs>

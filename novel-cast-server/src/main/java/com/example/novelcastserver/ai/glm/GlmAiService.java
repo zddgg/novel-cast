@@ -4,9 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.example.novelcastserver.ai.AiService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -16,9 +15,8 @@ import reactor.core.publisher.Flux;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class GlmAiService implements AiService {
-
-    private static final Logger log = LoggerFactory.getLogger(GlmAiService.class);
 
     @Value("${ai.glm.api-key:}")
     private String apiKey;

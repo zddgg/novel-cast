@@ -1,4 +1,4 @@
-package com.example.novelcastserver.v2.vo;
+package com.example.novelcastserver.bean;
 
 import lombok.Data;
 

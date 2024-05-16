@@ -15,8 +15,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static com.example.novelcastserver.config.PathConfig.file_projectConfig;
 
 @CrossOrigin
 @RestController
@@ -99,9 +102,6 @@ public class ProjectController {
         String projectConfigPath = pathConfig.getProjectConfigPath(config.getProject());
         Files.createDirectories(Path.of(projectConfigPath));
         Files.write(Path.of(projectConfigPath + "projectConfig.json"), JSON.toJSONBytes(config));
-
-        splitChapters(config.getProject(), config.getTextConfig().getChapterTitlePattern(), true);
-
         return Result.success();
     }
 
@@ -129,7 +129,7 @@ public class ProjectController {
     public Result<Object> splitTmpChapters(@RequestBody SplitChapterVO vo) throws IOException {
         String project = vo.getProject();
 
-        List<String> strings = splitChapters(project, vo.getChapterTitlePattern(), false);
+        List<String> strings = splitChapters(project, vo.getChapterTitlePattern(), true);
 
         return Result.success(strings);
     }
@@ -184,6 +184,61 @@ public class ProjectController {
         if (Files.exists(projectPath) && Files.isDirectory(projectPath)) {
             FileUtils.deleteDirectoryAll(projectPath);
         }
+        return Result.success();
+    }
+
+    @PostMapping("loadProjectRoleModel")
+    public Result<Object> loadProjectRoleModel(@RequestBody LoadProjectRoleModel vo) throws IOException {
+        List<ProjectConfig.ProjectRoleConfig> roleConfigs = new ArrayList<>();
+
+        ProjectConfig projectConfig = pathConfig.getProjectConfig(vo.getProject());
+        if (Objects.nonNull(projectConfig)
+                && !CollectionUtils.isEmpty(projectConfig.getRoleConfigs())
+                && !CollectionUtils.isEmpty(vo.getRoles())) {
+            roleConfigs = projectConfig.getRoleConfigs()
+                    .stream()
+                    .filter(projectRoleConfig ->
+                            vo.getRoles().contains(projectRoleConfig.getRole())).toList();
+        }
+        return Result.success(roleConfigs);
+    }
+
+    @PostMapping("checkProjectRoleModel")
+    public Result<Object> checkProjectRoleModel(@RequestBody ProjectConfig.ProjectRoleConfig roleConfig) throws IOException {
+        ProjectConfig projectConfig = pathConfig.getProjectConfig(roleConfig.getProject());
+        List<ProjectConfig.ProjectRoleConfig> roleConfigs = projectConfig.getRoleConfigs();
+        List<String> roleList = roleConfigs.stream().map(ProjectConfig.ProjectRoleConfig::getRole).toList();
+        if (roleList.contains(roleConfig.getRole())) {
+            for (ProjectConfig.ProjectRoleConfig config : roleConfigs) {
+                if (config.getRole().equals(roleConfig.getRole())) {
+                    return Result.success(false);
+                }
+            }
+        } else {
+            roleConfigs.add(roleConfig);
+        }
+        Files.write(Path.of(pathConfig.getProjectConfigPath(roleConfig.getProject())), JSON.toJSONBytes(projectConfig));
+        return Result.success(true);
+    }
+
+    @PostMapping("setProjectRoleModel")
+    public Result<Object> setProjectRoleModel(@RequestBody ProjectConfig.ProjectRoleConfig roleConfig) throws IOException {
+        ProjectConfig projectConfig = pathConfig.getProjectConfig(roleConfig.getProject());
+        List<ProjectConfig.ProjectRoleConfig> roleConfigs = projectConfig.getRoleConfigs();
+        List<String> roleList = roleConfigs.stream().map(ProjectConfig.ProjectRoleConfig::getRole).toList();
+        if (roleList.contains(roleConfig.getRole())) {
+            for (ProjectConfig.ProjectRoleConfig config : roleConfigs) {
+                if (config.getRole().equals(roleConfig.getRole())) {
+                    config.setGsvModel(roleConfig.getGsvModel());
+                    config.setModel(roleConfig.getModel());
+                    config.setMood(roleConfig.getMood());
+                }
+            }
+        } else {
+            roleConfigs.add(roleConfig);
+        }
+        Files.write(Path.of(pathConfig.getProjectConfigPath(roleConfig.getProject()) + file_projectConfig),
+                JSON.toJSONBytes(projectConfig));
         return Result.success();
     }
 }

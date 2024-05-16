@@ -34,7 +34,6 @@ public class PathConfig {
     public static final String MODELS = "模型";
     public static final String MODEL_CONFIG = "model_config.json";
     public static final String GPT_SoVITS_MODEL = "GPT-SoVITS模型";
-    public static final String GPT_SoVITS_AUDIO = "GPT-SoVITS音频";
 
     public static final String SPEECH = "语音";
 
@@ -58,6 +57,7 @@ public class PathConfig {
     private String fileSystemUrl;
     private String gptSoVitsUrl;
     private String remoteSpeechPath;
+    private String remoteGsvModelPath;
 
     @PostConstruct
     public void init() {
@@ -66,9 +66,6 @@ public class PathConfig {
             fileSystemPath = absPath + File.separator + "novelCast" + File.separator;
         }
         fileSystemUrl = "http://localhost:" + env.getProperty("server.port") + "/files/";
-        if (StringUtils.isBlank(remoteSpeechPath)) {
-            remoteSpeechPath = getModelSpeechPath();
-        }
     }
 
     public String getProjectPath() {
@@ -136,6 +133,17 @@ public class PathConfig {
             return getModelSpeechPath();
         }
         return this.remoteSpeechPath;
+    }
+
+    public String getRemoteGsvModelPath() {
+        if (StringUtils.isEmpty(remoteGsvModelPath)) {
+            return getGsvModelPath();
+        }
+        return this.remoteGsvModelPath;
+    }
+
+    public String getGsvModelPath() {
+        return STR."\{this.fileSystemPath}\{MODELS}\{File.separator}\{GPT_SoVITS_MODEL}\{File.separator}";
     }
 
     public String getModelSpeechPath() {

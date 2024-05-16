@@ -10,4 +10,5 @@ public class SpeechModel {
     private List<Mood> moods;
     private String gender;
     private String ageGroup;
+    private String url;
 }

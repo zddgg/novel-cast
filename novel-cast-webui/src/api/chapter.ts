@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Pagination, PaginationResp } from '@/types/global';
+import {GsvModel} from "@/api/model";
 
 export interface SentenceInfo {
   index: number;
@@ -43,12 +44,17 @@ export interface LinesMapping {
 export interface RoleSpeechConfig {
   linesIndex: string;
   role: string;
+  gender: string;
+  ageGroup: string;
   lines: string;
+  gsvModelGroup: string;
+  gsvModelName: string;
   group: string;
   name: string;
   mood: string;
   audioUrl: string;
   model: string[];
+  gsvModel: string[];
   duration: number;
   speedControl: number;
   textLanguage: number;
@@ -136,10 +142,12 @@ export interface SpeechModel {
 
 export interface RoleModelConfig {
   role: Role;
-  models: ModelItem[];
+  model: ModelItem;
   strategyType: string;
-  moods: string[];
-  tmpModels: string[][];
+  mood: string;
+  tmpModel: string[];
+  gsvModel: GsvModel;
+  tmpGsvModel: string[];
 }
 
 export interface LinesConfig {
@@ -148,6 +156,8 @@ export interface LinesConfig {
   mood: string;
   tmpModel: string[];
   backup: string;
+  gsvModel: GsvModel;
+  tmpGsvModel: string[];
 }
 
 export interface ModelConfig {
