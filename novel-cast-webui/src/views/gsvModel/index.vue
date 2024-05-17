@@ -55,9 +55,9 @@
 
   const getGsvModels = async () => {
     const { data } = await gsvModels();
-    renderData.value = data.reduce((acc, item) => {
+    renderData.value = data.reduce((acc: any, item) => {
       const { group } = item;
-      let groupItem = acc.find((g) => g.group === group);
+      let groupItem = acc.find((g: GsvModel) => g.group === group);
       if (!groupItem) {
         groupItem = { group, list: [] };
         acc.push(groupItem);

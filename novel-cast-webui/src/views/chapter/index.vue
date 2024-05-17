@@ -251,8 +251,7 @@
 
 <script lang="ts" setup>
   import { Pagination } from '@/types/global';
-  import { computed, onMounted, reactive, ref, watch } from 'vue';
-  import useLoading from '@/hooks/loading';
+  import { computed, onMounted, reactive, ref } from 'vue';
   import {
     ChapterInfo,
     Chapter,
@@ -266,7 +265,6 @@
   import ModelView from './components/ModelView.vue';
 
   const route = useRoute();
-  const { loading, setLoading } = useLoading(true);
 
   const chapters = ref<Chapter[]>([]);
   const chapterInfo = ref<ChapterInfo>({} as ChapterInfo);
@@ -432,7 +430,7 @@
   };
 
   const showChapterText = async (chapterName: string) => {
-    await refreshChapterText(chapterName);
+    await refreshChapterText(chapterName, false);
     scrollToTop('text-review-area');
   };
 

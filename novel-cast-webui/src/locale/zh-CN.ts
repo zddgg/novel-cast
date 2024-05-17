@@ -18,8 +18,8 @@ export default {
   'navbar.action.locale': '切换为中文',
 
   'menu.novelCast': '小说配音',
-  'menu.novelCast.gsvModel': '模型管理',
-  'menu.novelCast.gsvAudio': '音频管理',
+  'menu.novelCast.gsvModel': '模型',
+  'menu.novelCast.gsvAudio': '音频',
   'menu.novelCast.project': '项目管理',
 
   ...localeSettings,

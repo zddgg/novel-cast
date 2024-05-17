@@ -15,7 +15,6 @@ spring:
     retry:
       max-attempts: 1
     openai:
-      # kimi 配置
       base-url: ${ai.openai.base-url}
       api-key: ${ai.openai.api-key}
       chat:
@@ -29,6 +28,9 @@ novel-cast:
   gpt-so-vits-url: 'http://127.0.0.1:9880/'
   remote-speech-path:
   remote-gsv-model-path:
+  gsv:
+    type: base # 'base', 'fast-inference' fast-inference api 支持改变模型
+    cut: cut0 # fast-inference 的参数
 
 ai:
   type: openai #这里只能配置 openai qwen spark glm  这几个

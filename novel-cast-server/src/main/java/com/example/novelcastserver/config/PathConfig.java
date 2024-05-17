@@ -32,7 +32,6 @@ public class PathConfig {
     public static final String PROJECT = "项目";
     public static final String CHAPTER = "章节";
     public static final String MODELS = "模型";
-    public static final String MODEL_CONFIG = "model_config.json";
     public static final String GPT_SoVITS_MODEL = "GPT-SoVITS模型";
 
     public static final String SPEECH = "语音";

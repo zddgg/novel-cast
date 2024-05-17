@@ -19,6 +19,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,6 +46,11 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/chapter")
 public class ChapterController {
+
+    @Value("${novel-cast.gsv.type:base}")
+    private String gsvType;
+    @Value("${novel-cast.gsv.cut:cut0}")
+    private String cut;
 
     public static final Map<String, String> audioCreateProcessMap = new HashMap<>();
 
@@ -546,6 +552,10 @@ public class ChapterController {
     }
 
     private void changeModel(RoleSpeechConfig first) throws IOException {
+        if (!StringUtils.equals(gsvType, "fast-inference")) {
+            return;
+        }
+
         String modelPath = pathConfig.getGsvModelPath() + first.getGsvModelGroup() + "/" + first.getGsvModelName();
         Files.list(Path.of(modelPath)).forEach(path -> {
             if (path.getFileName().toString().endsWith("ckpt")) {
@@ -623,23 +633,30 @@ public class ChapterController {
         } else {
 
             HashMap<String, String> map = new HashMap<>();
+            String url = pathConfig.getGptSoVitsUrl();
 
-            map.put("ref_audio_path", roleSpeechConfig.getPromptAudioPath());
-            map.put("prompt_text", roleSpeechConfig.getPromptText());
-            map.put("prompt_lang", "zh");
-            map.put("text", roleSpeechConfig.getLines());
-            map.put("text_lang", roleSpeechConfig.getTextLanguage());
-            map.put("text_split_method", "cut0");
+            if (StringUtils.equals(gsvType, "fast-inference")) {
+                map.put("ref_audio_path", roleSpeechConfig.getPromptAudioPath());
+                map.put("prompt_text", roleSpeechConfig.getPromptText());
+                map.put("prompt_lang", "zh");
+                map.put("text", roleSpeechConfig.getLines());
+                map.put("text_lang", roleSpeechConfig.getTextLanguage());
+                map.put("text_split_method", cut);
+                url += "tts";
+            } else {
+                map.put("refer_wav_path", roleSpeechConfig.getPromptAudioPath());
+                map.put("prompt_text", roleSpeechConfig.getPromptText());
+                map.put("prompt_language", "zh");
+                map.put("text", roleSpeechConfig.getLines());
+                map.put("text_language", roleSpeechConfig.getTextLanguage());
+            }
 
             log.info("音频参数: [{}]", JSON.toJSONString(map));
             log.info("生成音频, role: [{}], model: [{}], audio: [{}], mood: [{}], content: [{}], linesIndex: [{}]",
                     roleSpeechConfig.getGsvModelName(), roleSpeechConfig.getRole(),
                     roleSpeechConfig.getName(), roleSpeechConfig.getMood(), roleSpeechConfig.getLines(), roleSpeechConfig.getLinesIndex());
 
-            ResponseEntity<byte[]> response = restTemplate.postForEntity(
-                    pathConfig.getGptSoVitsUrl() + "tts", map, byte[].class
-            );
-
+            ResponseEntity<byte[]> response = restTemplate.postForEntity(url, map, byte[].class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
 
