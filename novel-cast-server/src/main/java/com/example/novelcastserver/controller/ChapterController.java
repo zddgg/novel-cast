@@ -585,7 +585,7 @@ public class ChapterController {
 
     public void createAudio(String project, String chapter, RoleSpeechConfig roleSpeechConfig) throws IOException {
 
-        if (StringUtils.equals(currentModel,
+        if (!StringUtils.equals(currentModel,
                 roleSpeechConfig.getGsvModelGroup() + "-" + roleSpeechConfig.getGsvModelName())) {
             changeModel(roleSpeechConfig);
             currentModel = roleSpeechConfig.getGsvModelGroup() + "-" + roleSpeechConfig.getGsvModelName();
