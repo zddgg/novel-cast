@@ -70,26 +70,19 @@
 
 		<dependency>
 			<groupId>org.bytedeco</groupId>
-			<artifactId>javacv-platform</artifactId>
-			<version>1.5.10</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.bytedeco</groupId>
 			<artifactId>javacv</artifactId>
 			<version>1.5.10</version>
 		</dependency>
-
 		<dependency>
 			<groupId>org.bytedeco</groupId>
 			<artifactId>javacpp</artifactId>
 			<version>1.5.10</version>
 		</dependency>
-
 		<dependency>
 			<groupId>org.bytedeco</groupId>
 			<artifactId>ffmpeg</artifactId>
 			<version>6.1.1-1.5.10</version>
+			<classifier>windows-x86_64</classifier>
 		</dependency>
 
 		<!-- AI start -->
