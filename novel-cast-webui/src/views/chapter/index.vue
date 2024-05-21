@@ -65,9 +65,20 @@
                                 配音播放
                               </a-button>
                             </div>
+                            <div v-if="!!item.outAudioUrl">
+                              <a-button
+                                type="outline"
+                                @click="downloadStr(item)"
+                              >
+                                <template #icon>
+                                  <icon-download />
+                                </template>
+                                导出字幕
+                              </a-button>
+                            </div>
                             <a-button @click="reloadState(index, item)"
-                              >刷新状态</a-button
-                            >
+                              >刷新状态
+                            </a-button>
                           </a-space>
                         </div>
                       </div>
@@ -329,15 +340,17 @@
 
         const linesDurations: LinesDuration[] = [];
         let startTime = 0;
-        list.forEach((item1) => {
-          const linesDuration: LinesDuration = {
-            start: startTime,
-            end: startTime + item1.duration + (item.audioMergeInterval || 0),
-            index: item1.linesIndex,
-          };
-          linesDurations.push(linesDuration);
-          startTime += item1.duration + (item.audioMergeInterval || 0);
-        });
+        list
+          .filter((roleSpeechConfig) => !roleSpeechConfig.combineIgnore)
+          .forEach((item1) => {
+            const linesDuration: LinesDuration = {
+              start: startTime,
+              end: startTime + item1.duration + (item.audioMergeInterval || 0),
+              index: item1.linesIndex,
+            };
+            linesDurations.push(linesDuration);
+            startTime += item1.duration + (item.audioMergeInterval || 0);
+          });
         durationMap.value?.set(item.chapterName, linesDurations);
       }
     });
@@ -496,6 +509,71 @@
     currentPlayingIndex.value = index;
     showChapterText(chapter.chapterName);
     pauseOthers(index);
+  };
+
+  const downloadSrtFile = (content, filename) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'subtitles.srt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const msToSrtTime = (milliseconds) => {
+    let ms: string | number = parseInt(String(milliseconds % 1000), 10);
+    let seconds: string | number = parseInt(
+      String((milliseconds / 1000) % 60),
+      10
+    );
+    let minutes: string | number = parseInt(
+      String((milliseconds / (1000 * 60)) % 60),
+      10
+    );
+    let hours: string | number = parseInt(
+      String((milliseconds / (1000 * 60 * 60)) % 24),
+      10
+    );
+
+    hours = hours < 10 ? `0${hours}` : hours;
+    minutes = minutes < 10 ? `0${minutes}` : minutes;
+    seconds = seconds < 10 ? `0${seconds}` : seconds;
+    ms = ms < 100 ? `0${ms < 10 ? `0${ms}` : ms}` : ms;
+
+    return `${hours}:${minutes}:${seconds},${ms}`;
+  };
+
+  const downloadStr = (chapter: Chapter) => {
+    const strArr: string[] = [];
+
+    chapters.value.forEach((item) => {
+      if (item.chapterName === chapter.chapterName) {
+        const i = item.audioMergeInterval;
+        let start = 0;
+        let end = 0;
+
+        item.roleSpeechConfigs
+          .filter((roleSpeechConfig) => !roleSpeechConfig.combineIgnore)
+          .forEach((speechConfig, index) => {
+            if (index === item.roleSpeechConfigs.length - 1) {
+              end = start + speechConfig.duration;
+            } else {
+              end = start + speechConfig.duration + i;
+            }
+            strArr.push(
+              `${index + 1}\n${msToSrtTime(start)} --> ${msToSrtTime(end)}\n${
+                speechConfig.lines
+              }`
+            );
+            start = end;
+          });
+      }
+    });
+
+    downloadSrtFile(strArr.join('\n\n'), `${chapter.chapterName}.srt`);
   };
 
   const findDialogue = (currentAudioTime: number) => {

@@ -4,6 +4,9 @@
       <div>
         <div style="text-align: right">
           <a-space size="large">
+            <a-button type="primary" @click="handleLoadAiResult">
+              加载AiResult
+            </a-button>
             <a-button
               v-if="
                 roleConfigs &&
@@ -489,7 +492,7 @@
   import {
     aiResultFormat,
     ignoreAiResult,
-    LinesConfig,
+    LinesConfig, loadAiResult,
     ModelConfig,
     queryModelConfig,
     Role,
@@ -874,6 +877,14 @@
     activeAudio.value = '';
   };
 
+  const handleLoadAiResult = async () => {
+    await loadAiResult({
+      project: route.query.project as string,
+      chapterName: props.chapterName as string,
+    });
+    await getModelConfigData();
+  };
+
   const handleLoadProjectRoleModel = async () => {
     const { data } = await loadProjectRoleModel({
       project: route.query.project as string,
@@ -924,32 +935,6 @@
         tmpModel: item.model ? [item.model.group, item.model.name] : [],
       };
     });
-  };
-
-  const handleSetProjectRoleModel = async (config: RoleModelConfig) => {
-    const { data } = await checkProjectRoleModel({
-      project: route.query.project as string,
-      role: config.role.role,
-      gsvModel: config.gsvModel,
-      model: config.model,
-      mood: config.mood,
-    } as any);
-    if (!data) {
-      Modal.warning({
-        title: '已存在预置角色模型，是否覆盖配置？',
-        content: () => false,
-        async onOk() {
-          const { msg } = await setProjectRoleModel({
-            project: route.query.project as string,
-            role: config.role.role,
-            gsvModel: config.gsvModel,
-            model: config.model,
-            mood: config.mood,
-          } as any);
-          Message.success(msg);
-        },
-      });
-    }
   };
 
   onMounted(() => {

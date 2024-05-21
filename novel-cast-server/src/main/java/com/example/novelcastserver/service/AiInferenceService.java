@@ -186,7 +186,7 @@ public class AiInferenceService {
             {
               "roles": [
                 {
-                  "role": "萧炎",
+                  "role": "这里是具体的角色名",
                   "gender": "男",
                   "ageGroup": "青少年"
                 }
@@ -194,7 +194,7 @@ public class AiInferenceService {
               "linesMappings": [
                 {
                   "linesIndex": "这里的值是台词前的序号",
-                  "role": "萧炎",
+                  "role": "这里是具体的角色名",
                   "gender": "男",
                   "ageGroup": "青少年",
                   "mood": "自卑"

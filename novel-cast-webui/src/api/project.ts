@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { Pagination } from '@/types/global';
-import { ModelItem } from '@/api/chapter';
-import { GsvModel } from '@/api/model';
+import {GsvModel, ModelItem} from '@/api/model';
 
 export interface Project {
   id: number;

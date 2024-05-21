@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+export interface ModelItem {
+  group: string;
+  name: string;
+}
+
 export interface Mood {
   name: string;
   url: string;

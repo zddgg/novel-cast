@@ -297,7 +297,7 @@ public class ChapterService {
             try {
                 AudioUtils.generateSilentAudio(tmpAudio, Long.valueOf(audioMergeInterval));
             } catch (Exception e) {
-                log.error("生成空白音频失败");
+                log.error("生成空白音频失败, {}", e.getMessage(), e);
                 audioMergeInterval = 0;
             }
         }

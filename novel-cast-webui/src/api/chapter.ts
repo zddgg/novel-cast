@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Pagination, PaginationResp } from '@/types/global';
-import {GsvModel} from "@/api/model";
+import { GsvModel, ModelItem } from '@/api/model';
 
 export interface SentenceInfo {
   index: number;
@@ -117,11 +117,6 @@ export function updateRoles(params: RoleParams) {
   return axios.post('/api/chapter/updateRoles', params);
 }
 
-export interface ModelItem {
-  group: string;
-  name: string;
-}
-
 export interface RoleModelConfig1 {
   role: Role;
   models: ModelItem[];
@@ -213,6 +208,10 @@ export function saveAiReInferenceResult(params: AiResultFormatParams) {
     '/api/chapter/saveAiReInferenceResult',
     params
   );
+}
+
+export function loadAiResult(params: RoleParams) {
+  return axios.post('/api/chapter/loadAiResult', params);
 }
 
 export function createSpeechConfig(params: ChapterParams) {

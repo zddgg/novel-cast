@@ -153,6 +153,25 @@ public class ChapterController {
         return Result.success(page);
     }
 
+    @PostMapping(value = "loadAiResult")
+    public Result<AiResult> loadAiResult(@RequestBody ChapterVO vo) throws IOException {
+        AiResult aiResult = new AiResult();
+
+        String aiResultJsonPathStr = pathConfig.getAiResultFilePath(vo.getProject(), vo.getChapterName());
+        Path aiResultJsonPath = Path.of(aiResultJsonPathStr);
+        if (Files.exists(aiResultJsonPath)) {
+            String text = Files.readString(aiResultJsonPath);
+            if (text.startsWith("```json") || text.endsWith("```")) {
+                text = text.replace("```json", "").replace("```", "");
+                Files.writeString(aiResultJsonPath, text);
+            }
+            aiResult = JSON.parseObject(text, AiResult.class);
+            aiResult = chapterService.reCombineAiResult(vo.getProject(), vo.getChapterName(), aiResult);
+            chapterService.saveRoleAndLinesMapping(vo.getProject(), vo.getChapterName(), aiResult);
+        }
+
+        return Result.success(aiResult);
+    }
 
     @PostMapping(value = "aiResult")
     public Result<AiResult> aiResult(@RequestBody ChapterVO vo) throws IOException {
@@ -339,6 +358,24 @@ public class ChapterController {
             Path chapterConfigpath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName())
                     + PathConfig.file_chapterConfig);
             Files.write(chapterConfigpath, JSON.toJSONBytes(chapterConfig));
+
+
+            List<Lines> linesList = new ArrayList<>();
+            chapterInfo.getLineInfos().forEach(lineInfo -> {
+                lineInfo.getSentenceInfos().forEach(sentenceInfo -> {
+                    if (Objects.equals(sentenceInfo.getLinesFlag(), Boolean.TRUE)
+                            && !Objects.equals(sentenceInfo.getLinesDelFlag(), Boolean.TRUE)) {
+                        Lines lines = new Lines();
+                        lines.setIndex(lineInfo.getIndex() + "-" + sentenceInfo.getIndex());
+                        lines.setLines(sentenceInfo.getContent());
+                        linesList.add(lines);
+                    }
+                });
+            });
+
+            Path linesJsonpath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()), "lines.json");
+            Files.write(linesJsonpath, JSON.toJSONBytes(linesList));
+
         }
 
         return Result.success();
