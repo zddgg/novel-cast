@@ -636,14 +636,14 @@ public class ChapterController {
         if (Files.exists(Path.of(pathConfig.getModelSpeechPath() + moodPath))) {
             Files.list(Path.of(pathConfig.getModelSpeechPath() + moodPath)).forEach(path -> {
                 if (path.getFileName().toString().endsWith(".wav")) {
-                    roleSpeechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + moodPath + "/" + path.getFileName().toString());
+                    roleSpeechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + moodPath + File.separator + path.getFileName().toString());
                     roleSpeechConfig.setPromptText(path.getFileName().toString().replace(".wav", ""));
                 }
             });
         } else {
             Files.list(Path.of(pathConfig.getModelSpeechPath() + defaultMoodPath)).forEach(path -> {
                 if (path.getFileName().toString().endsWith(".wav")) {
-                    roleSpeechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + defaultMoodPath + "/" + path.getFileName().toString());
+                    roleSpeechConfig.setPromptAudioPath(pathConfig.getRemoteSpeechPath() + defaultMoodPath + File.separator + path.getFileName().toString());
                     roleSpeechConfig.setPromptText(path.getFileName().toString().replace(".wav", ""));
                 }
             });
