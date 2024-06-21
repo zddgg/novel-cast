@@ -1,3 +1,6 @@
+# 本项目不再维护，新项目[aigc-server](https://github.com/zddgg/aigc-platform-server)，全新UI及交互，欢迎关注。
+
+
 # novel-cast
 ### 一个小说多角色自动化AI配音程序
 1. 角色分析：kimi
