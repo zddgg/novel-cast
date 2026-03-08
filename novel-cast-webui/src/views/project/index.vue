@@ -1,47 +1,44 @@
 <template>
   <div class="container">
     <a-card class="general-card" title="项目管理">
-      <a-grid :cols="4" :col-gap="24" :row-gap="24">
-        <a-grid-item>
-          <a-card
-            style="height: 100%; width: 100%"
-            :body-style="{
+      <div style="  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
+        <a-card
+          style="height: 100%; width: 100%"
+          :body-style="{
               minHeight: '160px',
               height: '100%',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
             }"
-            @click="() => (projectCreateModelVisible = true)"
-          >
-            <div style="text-align: center">
-              <div>
-                <icon-plus />
-              </div>
-              <div style="margin-top: 20px; font-size: 18px">
-                点击创建新项目
-              </div>
+          @click="() => (projectCreateModelVisible = true)"
+        >
+          <div style="text-align: center">
+            <div>
+              <icon-plus />
             </div>
-          </a-card>
-        </a-grid-item>
-        <a-grid-item v-for="(item, index) in renderData" :key="index">
-          <div class="card-hover">
-            <a-card>
-              <a-descriptions
-                size="large"
-                :column="2"
-                :title="item.projectName"
-                bordered
-              >
-                <a-descriptions-item label="章节数">{{
+            <div style="margin-top: 20px; font-size: 18px">
+              点击创建新项目
+            </div>
+          </div>
+        </a-card>
+        <div v-for="(item, index) in renderData" :key="index" class="card-hover">
+          <a-card>
+            <a-descriptions
+              size="large"
+              :column="2"
+              :title="item.projectName"
+              bordered
+            >
+              <a-descriptions-item label="章节数">{{
                   item.chapterNum
                 }}</a-descriptions-item>
-              </a-descriptions>
-              <div style="margin-top: 20px; text-align: right">
-                <a-space wrap>
-                  <a-button
-                    type="primary"
-                    @click="
+            </a-descriptions>
+            <div style="margin-top: 20px; text-align: right">
+              <a-space wrap>
+                <a-button
+                  type="primary"
+                  @click="
                       () => {
                         router.push({
                           name: 'ProjectConfig',
@@ -51,24 +48,24 @@
                         });
                       }
                     "
-                    >step1: 项目配置</a-button
-                  >
-                  <a-button type="primary" @click="handleToChapterConfig(item)"
-                    >step2: 章节配置</a-button
-                  >
-                  <a-button
-                    type="primary"
-                    status="danger"
-                    :loading="loading"
-                    @click="handleDeleteProject(item)"
-                    >删除项目</a-button
-                  >
-                </a-space>
-              </div>
-            </a-card>
-          </div>
-        </a-grid-item>
-      </a-grid>
+                >
+                  1: 项目配置
+                </a-button>
+                <a-button type="primary" @click="handleToChapterConfig(item)">
+                  2: 章节配置</a-button>
+                <a-button
+                  type="primary"
+                  status="danger"
+                  :loading="loading"
+                  @click="handleDeleteProject(item)"
+                >
+                  <icon-delete />
+                </a-button>
+              </a-space>
+            </div>
+          </a-card>
+        </div>
+      </div>
     </a-card>
     <a-modal
       v-model:visible="projectCreateModelVisible"

@@ -68,19 +68,19 @@ public class PathConfig {
     }
 
     public String getProjectPath() {
-        return STR."\{this.fileSystemPath}\{PROJECT}\{File.separator}";
+        return this.fileSystemPath + PROJECT + File.separator;
     }
 
     public String getProjectPath(String project) {
-        return STR."\{this.fileSystemPath}\{PROJECT}\{File.separator}\{project}\{File.separator}";
+        return this.fileSystemPath + PROJECT + File.separator + project + File.separator;
     }
 
     public String getProjectConfigPath(String project) {
-        return STR."\{getProjectPath(project)}\{CONFIG}\{File.separator}";
+        return getProjectPath(project) + CONFIG + File.separator;
     }
 
     public String getChapterPath(String project) {
-        return STR."\{getProjectPath(project)}\{CHAPTER}\{File.separator}";
+        return getProjectPath(project) + CHAPTER + File.separator;
     }
 
     public String getChapterPath(String project, String chapterName) {
@@ -88,7 +88,7 @@ public class PathConfig {
     }
 
     public String getOriginTextPath(String project, String chapterName) {
-        return STR."\{getChapterPath(project, chapterName)}原文.txt";
+        return getChapterPath(project, chapterName) + "原文.txt";
     }
 
     public String getAiResultFilePath(String project, String chapterName) {
@@ -124,7 +124,7 @@ public class PathConfig {
     }
 
     public String getModelPath() {
-        return STR."\{this.fileSystemPath}\{MODELS}\{File.separator}";
+        return this.fileSystemPath + MODELS + File.separator;
     }
 
     public String getRemoteSpeechPath() {
@@ -142,15 +142,15 @@ public class PathConfig {
     }
 
     public String getGsvModelPath() {
-        return STR."\{this.fileSystemPath}\{MODELS}\{File.separator}\{GPT_SoVITS_MODEL}\{File.separator}";
+        return this.fileSystemPath + MODELS + File.separator + GPT_SoVITS_MODEL + File.separator;
     }
 
     public String getModelSpeechPath() {
-        return STR."\{this.fileSystemPath}\{MODELS}\{File.separator}\{SPEECH}\{File.separator}";
+        return this.fileSystemPath + MODELS + File.separator + SPEECH + File.separator;
     }
 
     public String getModelMarkedJsonPath() {
-        return STR."\{getModelPath()}\{CONFIG}\{File.separator}\{file_speechMarked}";
+        return getModelPath() + CONFIG + File.separator + file_speechMarked;
     }
 
     public String getModelSpeechUrlBase() {
@@ -167,7 +167,7 @@ public class PathConfig {
 
     public ChapterInfo getChapterInfo(String project, String chapter) throws IOException {
         Path path = Path.of(getChapterPath(project, chapter) + file_chapterInfo);
-        return JSON.parseObject(Optional.ofNullable(Files.readString(path)).orElse("{}"), ChapterInfo.class);
+        return JSON.parseObject(Optional.of(Files.readString(path)).orElse("{}"), ChapterInfo.class);
     }
 
     public String getChapterInfoPath(String project, String chapter) throws IOException {
@@ -176,7 +176,7 @@ public class PathConfig {
 
     public ModelConfig getModelConfig(String project, String chapter) throws IOException {
         Path path = Path.of(getChapterPath(project, chapter) + file_modelConfig);
-        return JSON.parseObject(Optional.ofNullable(Files.readString(path)).orElse("{}"), ModelConfig.class);
+        return JSON.parseObject(Optional.of(Files.readString(path)).orElse("{}"), ModelConfig.class);
     }
 
     public SpeechConfig getSpeechConfig(String project, String chapter) throws IOException {
@@ -194,7 +194,7 @@ public class PathConfig {
 
     public ProjectConfig getProjectConfig(String project) throws IOException {
         Path path = Path.of(getProjectConfigPath(project) + file_projectConfig);
-        return JSON.parseObject(Optional.ofNullable(Files.readString(path)).orElse("{}"), ProjectConfig.class);
+        return JSON.parseObject(Optional.of(Files.readString(path)).orElse("{}"), ProjectConfig.class);
     }
 
     public Path getProcessFlagPath(String project, String chapter) {

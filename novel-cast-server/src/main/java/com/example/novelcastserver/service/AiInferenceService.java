@@ -69,19 +69,14 @@ public class AiInferenceService {
         });
         String content = sb.toString();
 
-        String userQuery = STR."""
-                要求如下：
-                \{parseStep}
-
-                输出格式如下：
-                \{outputFormat}
-
-                台词部分：
-                \{lines}
-
-                原文部分：
-                \{content}
-                """;
+        String userQuery = "要求如下：\n" +
+                parseStep + "\n" +
+                "输出格式如下：\n" +
+                outputFormat + "\n" +
+                "台词部分：\n" +
+                lines + "\n" +
+                "原文部分：\n" +
+                content + "\n";
 
         String systemMessage = "你是一个小说内容台词分析员，你会精确的找到台词在原文中的位置并分析属于哪个角色，以及角色在说这句台词时的上下文环境及情绪等。";
         return aiService.stream(systemMessage, userQuery);

@@ -174,7 +174,7 @@ public class ChapterExtractor {
                         String[] split = s.split("");
                         String var0 = split[0];
                         String var1 = split[1];
-                        return STR."(?<=\\\{var0})[^\\\{var1}]*(?=\\\{var1})";
+                        return "(?<=\\" + var0 + ")[^\\" + var1 + "]*(?=\\" + var1 + ")";
                     }
                     return null;
                 }).filter(Objects::nonNull)
@@ -190,7 +190,7 @@ public class ChapterExtractor {
                         String[] split = s.split("");
                         String var0 = split[0];
                         String var1 = split[1];
-                        return STR."(?<=\\\{var0})[^\\\{var1}]*(?=\\\{var1})";
+                        return "(?<=\\" + var0 + ")[^\\" + var1 + "]*(?=\\" + var1 + ")";
                     }
                     return null;
                 }).filter(Objects::nonNull)

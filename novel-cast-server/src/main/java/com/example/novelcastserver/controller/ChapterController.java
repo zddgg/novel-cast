@@ -323,7 +323,7 @@ public class ChapterController {
 
         Path chapterConfigPath = Path.of(pathConfig.getChapterPath(vo.getProject(), vo.getChapterName()) + PathConfig.file_chapterConfig);
         if (Files.exists(chapterConfigPath)) {
-            ChapterConfig chapterConfig = JSON.parseObject(Optional.ofNullable(Files.readString(chapterConfigPath))
+            ChapterConfig chapterConfig = JSON.parseObject(Optional.of(Files.readString(chapterConfigPath))
                     .orElse("{}"), ChapterConfig.class);
             if (Objects.nonNull(chapterConfig) && !CollectionUtils.isEmpty(chapterConfig.getLinesModifiers())) {
                 linesParseVO.setLinesModifiers(chapterConfig.getLinesModifiers());
@@ -589,35 +589,35 @@ public class ChapterController {
     }
 
     private void changeModel(RoleSpeechConfig first) throws IOException {
-        if (!StringUtils.equals(gsvType, "fast-inference")) {
-            return;
-        }
-
-        String modelPath = pathConfig.getGsvModelPath() + first.getGsvModelGroup() + "/" + first.getGsvModelName();
-        Files.list(Path.of(modelPath)).forEach(path -> {
-            if (path.getFileName().toString().endsWith("ckpt")) {
-                first.setGptWeightsPath(pathConfig.getRemoteGsvModelPath() + "/"
-                        + first.getGsvModelGroup() + "/" + first.getGsvModelName()
-                        + "/" + path.getFileName().toString());
-            }
-            if (path.getFileName().toString().endsWith("pth")) {
-                first.setSovitsWeightsPath(pathConfig.getRemoteGsvModelPath() + "/"
-                        + first.getGsvModelGroup() + "/" + first.getGsvModelName()
-                        + "/" + path.getFileName().toString());
-            }
-        });
-
-        log.info("切换GptWeights模型: [{}]", first.getGptWeightsPath());
-        ResponseEntity<String> entity1 = restTemplate.getForEntity(
-                pathConfig.getGptSoVitsUrl() + "set_gpt_weights?weights_path=" + first.getGptWeightsPath(), String.class
-        );
-        log.info("切换GptWeights模型成功: [{}]", entity1.getBody());
-
-        log.info("切换SovitsWeights模型: [{}]", first.getSovitsWeightsPath());
-        ResponseEntity<String> entity2 = restTemplate.getForEntity(
-                pathConfig.getGptSoVitsUrl() + "set_sovits_weights?weights_path=" + first.getSovitsWeightsPath(), String.class
-        );
-        log.info("切换SovitsWeights模型成功: [{}]", entity2.getBody());
+//        if (!StringUtils.equals(gsvType, "fast-inference")) {
+//            return;
+//        }
+//
+//        String modelPath = pathConfig.getGsvModelPath() + first.getGsvModelGroup() + "/" + first.getGsvModelName();
+//        Files.list(Path.of(modelPath)).forEach(path -> {
+//            if (path.getFileName().toString().endsWith("ckpt")) {
+//                first.setGptWeightsPath(pathConfig.getRemoteGsvModelPath() + "/"
+//                        + first.getGsvModelGroup() + "/" + first.getGsvModelName()
+//                        + "/" + path.getFileName().toString());
+//            }
+//            if (path.getFileName().toString().endsWith("pth")) {
+//                first.setSovitsWeightsPath(pathConfig.getRemoteGsvModelPath() + "/"
+//                        + first.getGsvModelGroup() + "/" + first.getGsvModelName()
+//                        + "/" + path.getFileName().toString());
+//            }
+//        });
+//
+//        log.info("切换GptWeights模型: [{}]", first.getGptWeightsPath());
+//        ResponseEntity<String> entity1 = restTemplate.getForEntity(
+//                pathConfig.getGptSoVitsUrl() + "set_gpt_weights?weights_path=" + first.getGptWeightsPath(), String.class
+//        );
+//        log.info("切换GptWeights模型成功: [{}]", entity1.getBody());
+//
+//        log.info("切换SovitsWeights模型: [{}]", first.getSovitsWeightsPath());
+//        ResponseEntity<String> entity2 = restTemplate.getForEntity(
+//                pathConfig.getGptSoVitsUrl() + "set_sovits_weights?weights_path=" + first.getSovitsWeightsPath(), String.class
+//        );
+//        log.info("切换SovitsWeights模型成功: [{}]", entity2.getBody());
     }
 
     public void createAudio(String project, String chapter, RoleSpeechConfig roleSpeechConfig) throws IOException {
@@ -672,21 +672,14 @@ public class ChapterController {
             HashMap<String, String> map = new HashMap<>();
             String url = pathConfig.getGptSoVitsUrl();
 
-            if (StringUtils.equals(gsvType, "fast-inference")) {
-                map.put("ref_audio_path", roleSpeechConfig.getPromptAudioPath());
-                map.put("prompt_text", roleSpeechConfig.getPromptText());
-                map.put("prompt_lang", "zh");
-                map.put("text", roleSpeechConfig.getLines());
-                map.put("text_lang", roleSpeechConfig.getTextLanguage());
-                map.put("text_split_method", cut);
-                url += "tts";
-            } else {
-                map.put("refer_wav_path", roleSpeechConfig.getPromptAudioPath());
-                map.put("prompt_text", roleSpeechConfig.getPromptText());
-                map.put("prompt_language", "zh");
-                map.put("text", roleSpeechConfig.getLines());
-                map.put("text_language", roleSpeechConfig.getTextLanguage());
-            }
+            map.put("text", roleSpeechConfig.getLines());
+            map.put("text_lang", roleSpeechConfig.getTextLanguage());
+            map.put("prompt_audio", roleSpeechConfig.getPromptAudioPath());
+            map.put("prompt_audio_text", roleSpeechConfig.getPromptText());
+            map.put("prompt_audio_lang", "zh");
+
+            url += "/tts";
+
 
             log.info("音频参数: [{}]", JSON.toJSONString(map));
             log.info("生成音频, role: [{}], model: [{}], audio: [{}], mood: [{}], content: [{}], linesIndex: [{}]",

@@ -15,41 +15,19 @@ spring:
     retry:
       max-attempts: 1
     openai:
-      base-url: ${ai.openai.base-url}
-      api-key: ${ai.openai.api-key}
+      base-url: https://api-inference.modelscope.cn
+      api-key: ${MODELSCOPE_APIKEY:666}
       chat:
         options:
-          model: ${ai.openai.model}
-          temperature: 0.3
-          max-tokens: 4096
+          model: ${MODELSCOPE_MODEL:Qwen/Qwen3-30B-A3B-Instruct-2507}
+          temperature: 0.7
+          max-tokens: 20000
 
 novel-cast:
   file-system-path:
-  gpt-so-vits-url: 'http://127.0.0.1:9880/'
+  gpt-so-vits-url: 'http://127.0.0.1:23452'
   remote-speech-path:
   remote-gsv-model-path:
   gsv:
     type: base # 'base', 'fast-inference' fast-inference api 支持改变模型
     cut: cut0 # fast-inference 的参数
-
-ai:
-  type: openai #这里只能配置 openai qwen spark glm  这几个
-
-  openai: # openai kimi ollama 使用这个配置
-    base-url: https://api.moonshot.cn
-    api-key: sk-MQHqTJVXT0O0OcakWN24J6y4m3PPlm5a8WZZqAsDUp1zQ8a8
-    model: moonshot-v1-32k
-
-  qwen: # 千问通义
-    api-key: sk-8e0e9fc6a51b4472b8024c1030cfb964
-    model: qwen-turbo
-
-  spark: # 讯飞星火
-    app-id: f0b46057
-    api-key: 917f9aee175ee7486301918eb0e89fd4
-    api-secret: MWVkZWNmMGVlYTY1NWY1MDc0ZGIyOWFm
-    domain: generalv3.5
-
-  glm: # 智谱清言
-    api-key: 15e3a6f6ba770126ba28277b1962fb99.3nocinvpeD0x2yXw
-    model: glm-4
