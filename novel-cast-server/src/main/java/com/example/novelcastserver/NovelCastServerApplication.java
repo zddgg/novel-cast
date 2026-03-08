@@ -10,6 +10,6 @@ public class NovelCastServerApplication {
     public static void main(String[] args) {
         ConfigurableApplicationContext context = SpringApplication.run(NovelCastServerApplication.class, args);
         System.out.println();
-        System.out.println("启动成功: http://127.0.0.1:" + context.getEnvironment().getProperty("server.port"));
+        System.out.println("启动成功: " + context.getEnvironment().getProperty("server.domain"));
     }
 }

@@ -25,6 +25,9 @@ public class PathConfig {
     @Value("${user.dir}")
     private String userDir;
 
+    @Value("${server.domain}")
+    private String serverDomain;
+
     @Autowired
     private Environment env;
 
@@ -64,7 +67,7 @@ public class PathConfig {
         if (StringUtils.isBlank(fileSystemPath)) {
             fileSystemPath = absPath + File.separator + "novelCast" + File.separator;
         }
-        fileSystemUrl = "http://localhost:" + env.getProperty("server.port") + "/files/";
+        fileSystemUrl = serverDomain + "/files/";
     }
 
     public String getProjectPath() {
